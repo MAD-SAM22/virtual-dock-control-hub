@@ -16,7 +16,7 @@ const apiClient = axios.create({
   withCredentials: false,
   // Disable redirects to see actual responses
   maxRedirects: 0,
-  // Add timeout
+  // Add timeout with a longer duration for development
   timeout: 30000,
 });
 
@@ -24,7 +24,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     // Log outgoing requests in development
-    console.log(`Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    console.log(`Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config);
     
     // Get token from localStorage
     const token = localStorage.getItem('token');
@@ -34,6 +34,7 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -42,7 +43,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     // Log successful responses in development
-    console.log('Response:', response.status, response.data);
+    console.log('Response success:', response.status, response.data, response);
     return response;
   },
   (error) => {

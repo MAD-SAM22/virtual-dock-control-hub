@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ping } from '@/services/dockerService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader, AlertCircle, CheckCircle, Wifi, WifiOff } from 'lucide-react';
+import { Loader, AlertCircle, CheckCircle, Wifi, WifiOff, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 const TestPage = () => {
@@ -12,21 +12,44 @@ const TestPage = () => {
   const [loading, setLoading] = useState(false);
   const [apiUrl, setApiUrl] = useState<string>(import.meta.env.VITE_API_URL || 'http://localhost:3000');
   const [status, setStatus] = useState<'online' | 'offline'>('offline');
+  const [rawResponse, setRawResponse] = useState<any>(null);
 
   const testPing = async () => {
     setLoading(true);
     setError(null);
+    setRawResponse(null);
     try {
       console.log('Sending ping request to Docker daemon...');
       const result = await ping();
-      console.log('Ping response success:', result);
-      setResponse(JSON.stringify(result.data));
-      setStatus('online');
-      toast.success('Connection successful!');
-    } catch (err) {
-      console.error('Ping error:', err);
+      console.log('Ping response raw:', result);
+      
+      // Store the raw response for debugging
+      setRawResponse(result);
+      
+      // Check if the response is as expected
+      if (result.data === "OK" || result.status === 200) {
+        setResponse(typeof result.data === 'string' ? result.data : JSON.stringify(result.data));
+        setStatus('online');
+        toast.success('Connection successful!');
+      } else {
+        throw new Error('Unexpected response format');
+      }
+    } catch (err: any) {
+      console.error('Ping error:', JSON.stringify(err, null, 2));
       setStatus('offline');
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      
+      // Provide more specific error information
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        setError(`Server responded with error ${err.response.status}: ${err.response.data}`);
+      } else if (err.request) {
+        // The request was made but no response was received
+        setError('No response received from server. Request may have timed out or been blocked.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setError(err.message || 'An unknown error occurred');
+      }
       toast.error('Connection failed!');
     } finally {
       setLoading(false);
@@ -91,6 +114,7 @@ const TestPage = () => {
                     <li>Verify Docker daemon is running on {apiUrl}</li>
                     <li>Check CORS settings on your backend</li>
                     <li>Verify network connectivity (no firewalls blocking requests)</li>
+                    <li>Check that your backend is returning the expected response format</li>
                     <li>Try using a proxy in your Vite config if needed</li>
                   </ul>
                 </div>
@@ -108,6 +132,16 @@ const TestPage = () => {
               </div>
             </div>
           ) : null}
+          
+          {rawResponse && (
+            <div className="mt-4 p-3 bg-muted rounded-md">
+              <div className="flex items-center mb-2">
+                <Info className="h-4 w-4 mr-2" />
+                <p className="text-sm font-medium">Raw Response Data (Debug):</p>
+              </div>
+              <pre className="text-xs overflow-auto max-h-40">{JSON.stringify(rawResponse, null, 2)}</pre>
+            </div>
+          )}
           
           <div className="mt-4 text-sm text-muted-foreground">
             <p>Endpoint: <code>/_ping</code></p>
