@@ -1,4 +1,6 @@
+
 import apiClient from './apiClient';
+import { toast } from "@/hooks/use-toast";
 
 const mockVMs = [
   { id: 'v1', name: 'ubuntu-server', status: 'running', memory: '2GB', cpu: '2 cores', storage: '20GB' },
@@ -13,6 +15,11 @@ export const qemuService = {
       return res;
     } catch (err) {
       console.warn('Failed to fetch VMs, using mock data.');
+      toast({
+        title: "Failed to fetch VMs",
+        description: "Using mock VM data due to network error.",
+        variant: "destructive"
+      });
       return { data: mockVMs };
     }
   },
@@ -23,6 +30,11 @@ export const qemuService = {
       const res = await apiClient.get(`/qemu/vms/${id}`);
       return res;
     } catch (err) {
+      toast({
+        title: "Failed to fetch VM details",
+        description: "Using mock VM data due to network error.",
+        variant: "destructive"
+      });
       return { data: mockVMs.find(vm => vm.id === id) || mockVMs[0] };
     }
   },
@@ -79,15 +91,15 @@ export const qemuService = {
 
   // Delete VM
   deleteVM: async (id: string, removeDisks: boolean = false) => {
-    return apiClient.delete(`/qemu/vms/${id}`, { 
-      params: { removeDisks } 
+    return apiClient.delete(`/qemu/vms/${id}`, {
+      params: { removeDisks }
     });
   },
 
   // Get VM console
   getConsoleOutput: async (id: string, lines: number = 100) => {
-    return apiClient.get(`/qemu/vms/${id}/console`, { 
-      params: { lines } 
+    return apiClient.get(`/qemu/vms/${id}/console`, {
+      params: { lines }
     });
   },
 

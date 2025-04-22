@@ -1,4 +1,6 @@
+
 import apiClient from './apiClient';
+import { toast } from "@/hooks/use-toast";
 
 const mockContainers = [
   { id: 'c1', name: 'nginx-proxy', image: 'nginx:latest', status: 'running', created: '2 days ago', cpu: '0.5%', memory: '128MB' },
@@ -7,40 +9,40 @@ const mockContainers = [
 ];
 
 const mockImages = [
-  { 
-    id: 'sha256:123456789abcdef', 
-    repository: 'nginx', 
-    tag: 'latest', 
-    size: '133MB', 
-    created: '2 weeks ago' 
+  {
+    id: 'sha256:123456789abcdef',
+    repository: 'nginx',
+    tag: 'latest',
+    size: '133MB',
+    created: '2 weeks ago'
   },
-  { 
-    id: 'sha256:987654321fedcba', 
-    repository: 'postgres', 
-    tag: '13', 
-    size: '314MB', 
-    created: '1 month ago' 
+  {
+    id: 'sha256:987654321fedcba',
+    repository: 'postgres',
+    tag: '13',
+    size: '314MB',
+    created: '1 month ago'
   },
-  { 
-    id: 'sha256:abcdef123456789', 
-    repository: 'redis', 
-    tag: 'alpine', 
-    size: '32MB', 
-    created: '3 weeks ago' 
+  {
+    id: 'sha256:abcdef123456789',
+    repository: 'redis',
+    tag: 'alpine',
+    size: '32MB',
+    created: '3 weeks ago'
   },
-  { 
-    id: 'sha256:fedcba987654321', 
-    repository: 'ubuntu', 
-    tag: '20.04', 
-    size: '72MB', 
-    created: '2 months ago' 
+  {
+    id: 'sha256:fedcba987654321',
+    repository: 'ubuntu',
+    tag: '20.04',
+    size: '72MB',
+    created: '2 months ago'
   },
-  { 
-    id: 'sha256:13579abcdef2468', 
-    repository: 'node', 
-    tag: '16-alpine', 
-    size: '117MB', 
-    created: '2 weeks ago' 
+  {
+    id: 'sha256:13579abcdef2468',
+    repository: 'node',
+    tag: '16-alpine',
+    size: '117MB',
+    created: '2 weeks ago'
   },
 ];
 
@@ -58,6 +60,11 @@ export const containerService = {
       return res;
     } catch (err) {
       console.warn('Failed to fetch containers, using mock data.');
+      toast({
+        title: "Failed to fetch containers",
+        description: "Using mock container data due to network error.",
+        variant: "destructive"
+      });
       return { data: mockContainers };
     }
   },
@@ -68,6 +75,11 @@ export const containerService = {
       const res = await apiClient.get(`/containers/${id}/json`);
       return res;
     } catch (err) {
+      toast({
+        title: "Failed to fetch container details",
+        description: "Using mock container data due to network error.",
+        variant: "destructive"
+      });
       // Return a single mock container by id (or first)
       return { data: mockContainers.find(c => c.id === id) || mockContainers[0] };
     }
@@ -120,7 +132,7 @@ export const containerService = {
 
   // Get container logs
   getContainerLogs: async (id: string, follow: boolean = false, tail: string = 'all') => {
-    return apiClient.get(`/containers/${id}/logs`, { 
+    return apiClient.get(`/containers/${id}/logs`, {
       params: { follow, tail, stdout: true, stderr: true },
       responseType: 'text'
     });
@@ -141,13 +153,18 @@ export const imageService = {
       return res;
     } catch (err) {
       console.warn('Failed to fetch images, using mock data.');
+      toast({
+        title: "Failed to fetch images",
+        description: "Using mock image data due to network error.",
+        variant: "destructive"
+      });
       return { data: mockImages };
     }
   },
 
   // Pull image
   pullImage: async (fromImage: string, tag: string = 'latest') => {
-    return apiClient.post(`/images/create`, null, { 
+    return apiClient.post(`/images/create`, null, {
       params: { fromImage, tag },
       headers: { 'Content-Type': 'application/json' }
     });
@@ -160,7 +177,7 @@ export const imageService = {
 
   // Push image
   pushImage: async (name: string, tag: string = 'latest') => {
-    return apiClient.post(`/images/${name}/push`, null, { 
+    return apiClient.post(`/images/${name}/push`, null, {
       params: { tag },
       headers: { 'X-Registry-Auth': 'placeholder' } // This should be a proper auth token in production
     });
