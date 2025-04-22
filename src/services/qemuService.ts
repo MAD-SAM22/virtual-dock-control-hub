@@ -1,6 +1,5 @@
-
 import apiClient from './apiClient';
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const mockVMs = [
   { id: 'v1', name: 'ubuntu-server', status: 'running', memory: '2GB', cpu: '2 cores', storage: '20GB' },
@@ -15,11 +14,7 @@ export const qemuService = {
       return res;
     } catch (err) {
       console.warn('Failed to fetch VMs, using mock data.');
-      toast({
-        title: "Failed to fetch VMs",
-        description: "Using mock VM data due to network error.",
-        variant: "destructive"
-      });
+      toast.info('Fetching Data Error: Using mock VM data');
       return { data: mockVMs };
     }
   },
@@ -30,11 +25,7 @@ export const qemuService = {
       const res = await apiClient.get(`/qemu/vms/${id}`);
       return res;
     } catch (err) {
-      toast({
-        title: "Failed to fetch VM details",
-        description: "Using mock VM data due to network error.",
-        variant: "destructive"
-      });
+      toast.info('Fetching Data Error: Using mock VM data');
       return { data: mockVMs.find(vm => vm.id === id) || mockVMs[0] };
     }
   },

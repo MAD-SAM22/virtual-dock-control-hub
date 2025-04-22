@@ -1,6 +1,5 @@
-
 import apiClient from './apiClient';
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const mockContainers = [
   { id: 'c1', name: 'nginx-proxy', image: 'nginx:latest', status: 'running', created: '2 days ago', cpu: '0.5%', memory: '128MB' },
@@ -60,11 +59,7 @@ export const containerService = {
       return res;
     } catch (err) {
       console.warn('Failed to fetch containers, using mock data.');
-      toast({
-        title: "Failed to fetch containers",
-        description: "Using mock container data due to network error.",
-        variant: "destructive"
-      });
+      toast.info('Fetching Data Error: Using mock container data');
       return { data: mockContainers };
     }
   },
@@ -75,12 +70,7 @@ export const containerService = {
       const res = await apiClient.get(`/containers/${id}/json`);
       return res;
     } catch (err) {
-      toast({
-        title: "Failed to fetch container details",
-        description: "Using mock container data due to network error.",
-        variant: "destructive"
-      });
-      // Return a single mock container by id (or first)
+      toast.info('Fetching Data Error: Using mock container data');
       return { data: mockContainers.find(c => c.id === id) || mockContainers[0] };
     }
   },
@@ -153,11 +143,7 @@ export const imageService = {
       return res;
     } catch (err) {
       console.warn('Failed to fetch images, using mock data.');
-      toast({
-        title: "Failed to fetch images",
-        description: "Using mock image data due to network error.",
-        variant: "destructive"
-      });
+      toast.info('Fetching Data Error: Using mock image data');
       return { data: mockImages };
     }
   },
