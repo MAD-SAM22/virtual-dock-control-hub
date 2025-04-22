@@ -61,6 +61,20 @@ const VMsPage = () => {
   const [selectedVM, setSelectedVM] = useState<VM | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
 
+  useEffect(() => {
+    // Try to fetch QEMU VMs on page load
+    qemuService.getVMs()
+      .then((res) => {
+        console.log('Fetched QEMU VMs:', res?.data);
+      })
+      .catch((err) => {
+        console.warn('Error fetching QEMU VMs:', err);
+      });
+      
+    // Fetch images
+    fetchVMs();
+  }, []);
+
   const fetchVMs = async () => {
     setIsLoading(true);
     try {
