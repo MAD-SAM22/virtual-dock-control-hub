@@ -1,14 +1,19 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Container, Table } from '@/components/ui/table';
+import { 
+  Table, 
+  TableHeader, 
+  TableBody, 
+  TableRow, 
+  TableHead, 
+  TableCell 
+} from '@/components/ui/table';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Box, Image, Server, Activity, AlertTriangle, CheckCircle } from 'lucide-react';
 import { containerService } from '@/services/dockerService';
 import { imageService } from '@/services/dockerService';
 import { qemuService } from '@/services/qemuService';
 
-// Mock data for the dashboard
 const generateMockData = (count: number) => {
   return Array.from({ length: count }, (_, i) => ({
     name: `${i * 10}m`,
@@ -26,16 +31,9 @@ const DashboardPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [systemData] = useState(() => generateMockData(24));
 
-  // Mock fetch function
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      // In a real application, these would be API calls
-      // const containerRes = await containerService.getContainers();
-      // const imageRes = await imageService.getImages();
-      // const vmRes = await qemuService.getVMs();
-      
-      // For demo purposes, using mock data
       setTimeout(() => {
         setContainers([
           { id: 'c1', name: 'nginx-proxy', image: 'nginx:latest', status: 'running', created: '2 days ago', cpu: '0.5%', memory: '128MB' },
@@ -112,7 +110,6 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, index) => (
           <Card key={index}>
@@ -136,7 +133,6 @@ const DashboardPage = () => {
         ))}
       </div>
 
-      {/* System metrics chart */}
       <Card>
         <CardHeader>
           <CardTitle>System Metrics</CardTitle>
@@ -183,7 +179,6 @@ const DashboardPage = () => {
         </CardContent>
       </Card>
 
-      {/* Recent containers and VMs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -193,41 +188,41 @@ const DashboardPage = () => {
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium">Name</th>
-                    <th className="text-left py-3 px-4 font-medium">Image</th>
-                    <th className="text-left py-3 px-4 font-medium">Status</th>
-                    <th className="text-left py-3 px-4 font-medium">CPU/Mem</th>
-                  </tr>
-                </thead>
-                <tbody>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-left py-3 px-4 font-medium">Name</TableHead>
+                    <TableHead className="text-left py-3 px-4 font-medium">Image</TableHead>
+                    <TableHead className="text-left py-3 px-4 font-medium">Status</TableHead>
+                    <TableHead className="text-left py-3 px-4 font-medium">CPU/Mem</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {isLoading ? (
-                    <tr>
-                      <td colSpan={4} className="py-4 text-center">
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-4 text-center">
                         <Box className="h-6 w-6 mx-auto animate-spin text-muted-foreground" />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     containers.slice(0, 3).map((container) => (
-                      <tr key={container.id} className="border-b last:border-b-0">
-                        <td className="py-3 px-4">{container.name}</td>
-                        <td className="py-3 px-4 text-sm">{container.image}</td>
-                        <td className="py-3 px-4">
+                      <TableRow key={container.id} className="border-b last:border-b-0">
+                        <TableCell className="py-3 px-4">{container.name}</TableCell>
+                        <TableCell className="py-3 px-4 text-sm">{container.image}</TableCell>
+                        <TableCell className="py-3 px-4">
                           <span className={`status-badge ${
                             container.status === 'running' ? 'status-running' :
                             container.status === 'paused' ? 'status-paused' : 'status-stopped'
                           }`}>
                             {container.status}
                           </span>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="py-3 px-4 text-sm text-muted-foreground">
                           {container.cpu} / {container.memory}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
+                </TableBody>
               </table>
             </div>
           </CardContent>
@@ -241,45 +236,44 @@ const DashboardPage = () => {
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium">Name</th>
-                    <th className="text-left py-3 px-4 font-medium">Status</th>
-                    <th className="text-left py-3 px-4 font-medium">Memory</th>
-                    <th className="text-left py-3 px-4 font-medium">CPU</th>
-                  </tr>
-                </thead>
-                <tbody>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-left py-3 px-4 font-medium">Name</TableHead>
+                    <TableHead className="text-left py-3 px-4 font-medium">Status</TableHead>
+                    <TableHead className="text-left py-3 px-4 font-medium">Memory</TableHead>
+                    <TableHead className="text-left py-3 px-4 font-medium">CPU</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {isLoading ? (
-                    <tr>
-                      <td colSpan={4} className="py-4 text-center">
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-4 text-center">
                         <Server className="h-6 w-6 mx-auto animate-spin text-muted-foreground" />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     vms.map((vm) => (
-                      <tr key={vm.id} className="border-b last:border-b-0">
-                        <td className="py-3 px-4">{vm.name}</td>
-                        <td className="py-3 px-4">
+                      <TableRow key={vm.id} className="border-b last:border-b-0">
+                        <TableCell className="py-3 px-4">{vm.name}</TableCell>
+                        <TableCell className="py-3 px-4">
                           <span className={`status-badge ${
                             vm.status === 'running' ? 'status-running' : 'status-stopped'
                           }`}>
                             {vm.status}
                           </span>
-                        </td>
-                        <td className="py-3 px-4">{vm.memory}</td>
-                        <td className="py-3 px-4">{vm.cpu}</td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className="py-3 px-4">{vm.memory}</TableCell>
+                        <TableCell className="py-3 px-4">{vm.cpu}</TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
+                </TableBody>
               </table>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* System status */}
       <Card>
         <CardHeader>
           <CardTitle>System Status</CardTitle>
