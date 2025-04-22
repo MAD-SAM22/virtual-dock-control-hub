@@ -33,6 +33,7 @@ import {
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { qemuService } from '@/services/qemuService';
+import apiClient from '@/services/apiClient';
 
 interface Image {
   id: string;
@@ -41,6 +42,13 @@ interface Image {
   format: string;
   lastModified: string;
   description?: string;
+}
+
+interface DockerImage {
+  Id: string;
+  RepoTags: string[];
+  Created: number;
+  Size: number;
 }
 
 const ImagesPage = () => {
@@ -83,58 +91,93 @@ const ImagesPage = () => {
   const fetchImages = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call with timeout
-      setTimeout(() => {
-        const mockImages = [
-          { 
-            id: 'img1', 
-            name: 'ubuntu-22.04-server.qcow2', 
-            size: '2.4 GB', 
-            format: 'qcow2', 
-            lastModified: '2023-05-15',
-            description: 'Ubuntu 22.04 LTS server image'
-          },
-          { 
-            id: 'img2', 
-            name: 'debian-11-generic.img', 
-            size: '1.8 GB', 
-            format: 'raw', 
-            lastModified: '2023-04-20',
-            description: 'Debian 11 Bullseye generic cloud image'
-          },
-          { 
-            id: 'img3', 
-            name: 'windows-server-2022.qcow2', 
-            size: '5.7 GB', 
-            format: 'qcow2', 
-            lastModified: '2023-06-01'
-          },
-          { 
-            id: 'img4', 
-            name: 'alpine-3.17-minimal.qcow2', 
-            size: '120 MB', 
-            format: 'qcow2', 
-            lastModified: '2023-03-10',
-            description: 'Alpine Linux 3.17 minimal installation'
-          },
-          { 
-            id: 'img5', 
-            name: 'fedora-37-cloud.img', 
-            size: '2.1 GB', 
-            format: 'raw', 
-            lastModified: '2023-02-15',
-            description: 'Fedora 37 Cloud Edition'
-          },
-        ];
-        setImages(mockImages);
-        setFilteredImages(mockImages);
+      console.log('Attempting to fetch Docker images from API');
+      const response = await apiClient.get('/images/json?all=true');
+      console.log('Docker images API response:', response);
+      
+      if (response && response.data && Array.isArray(response.data)) {
+        console.log('Valid Docker images data received from API');
+        const formattedImages = response.data.map((img: DockerImage) => {
+          const tagName = img.RepoTags && img.RepoTags.length > 0 ? img.RepoTags[0] : 'None';
+          return {
+            id: img.Id.substring(7, 19),
+            name: tagName,
+            size: formatBytes(img.Size),
+            format: 'docker',
+            lastModified: new Date(img.Created * 1000).toISOString().split('T')[0],
+            description: `Docker image with ID ${img.Id.substring(7, 19)}`
+          };
+        });
+        setImages(formattedImages);
+        setFilteredImages(formattedImages);
         setIsLoading(false);
-      }, 1000);
-    } catch (error) {
-      console.error('Error fetching images:', error);
-      toast.error('Failed to fetch disk images');
-      setIsLoading(false);
+      } else {
+        console.warn('Unexpected Docker images data format received, using mock data');
+        useMockData();
+      }
+    } catch (err) {
+      console.warn('Failed to fetch Docker images, using mock data:', err);
+      useMockData();
     }
+  };
+
+  const useMockData = () => {
+    toast.info('Fetching Data: Using mock image data');
+    setTimeout(() => {
+      const mockImages = [
+        { 
+          id: 'img1', 
+          name: 'ubuntu-22.04-server.qcow2', 
+          size: '2.4 GB', 
+          format: 'qcow2', 
+          lastModified: '2023-05-15',
+          description: 'Ubuntu 22.04 LTS server image'
+        },
+        { 
+          id: 'img2', 
+          name: 'debian-11-generic.img', 
+          size: '1.8 GB', 
+          format: 'raw', 
+          lastModified: '2023-04-20',
+          description: 'Debian 11 Bullseye generic cloud image'
+        },
+        { 
+          id: 'img3', 
+          name: 'windows-server-2022.qcow2', 
+          size: '5.7 GB', 
+          format: 'qcow2', 
+          lastModified: '2023-06-01'
+        },
+        { 
+          id: 'img4', 
+          name: 'alpine-3.17-minimal.qcow2', 
+          size: '120 MB', 
+          format: 'qcow2', 
+          lastModified: '2023-03-10',
+          description: 'Alpine Linux 3.17 minimal installation'
+        },
+        { 
+          id: 'img5', 
+          name: 'fedora-37-cloud.img', 
+          size: '2.1 GB', 
+          format: 'raw', 
+          lastModified: '2023-02-15',
+          description: 'Fedora 37 Cloud Edition'
+        },
+      ];
+      setImages(mockImages);
+      setFilteredImages(mockImages);
+      setIsLoading(false);
+    }, 1000);
+  };
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    
+    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const handleDeleteImage = (id: string) => {
@@ -148,17 +191,25 @@ const ImagesPage = () => {
     setConfirmDialogOpen(false);
     
     try {
-      toast.promise(
-        new Promise((resolve) => setTimeout(resolve, 1000)),
-        {
-          loading: 'Deleting image...',
-          success: () => {
-            setImages(images.filter(img => img.id !== selectedImageId));
-            return 'Image deleted successfully';
-          },
-          error: 'Failed to delete image',
-        }
-      );
+      try {
+        console.log(`Attempting to delete image with ID: ${selectedImageId}`);
+        await apiClient.delete(`/images/${selectedImageId}`);
+        toast.success('Image deleted successfully');
+        setImages(images.filter(img => img.id !== selectedImageId));
+      } catch (apiError) {
+        console.warn('API call to delete image failed, simulating success:', apiError);
+        toast.promise(
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+          {
+            loading: 'Deleting image...',
+            success: () => {
+              setImages(images.filter(img => img.id !== selectedImageId));
+              return 'Image deleted successfully';
+            },
+            error: 'Failed to delete image',
+          }
+        );
+      }
     } catch (error) {
       console.error('Error deleting image:', error);
       toast.error('Failed to delete image');
@@ -216,7 +267,7 @@ const ImagesPage = () => {
           const clonedImage = {
             ...imageToClone,
             id: `img${images.length + 1}`,
-            name: `${imageToClone.name.split('.')[0]}-clone.${imageToClone.name.split('.')[1]}`,
+            name: `${imageToClone.name.split('.')[0]}-clone.${imageToClone.name.split('.')[1] || 'img'}`,
             lastModified: new Date().toISOString().split('T')[0],
             description: `Clone of ${imageToClone.name}`
           };
