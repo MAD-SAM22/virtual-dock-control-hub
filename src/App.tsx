@@ -16,15 +16,26 @@ import LogsPage from "@/pages/LogsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 
-const queryClient = new QueryClient();
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
+// The main issue is likely caused by how React is imported and used with QueryClientProvider
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  // Wrap everything with BrowserRouter first
+  <BrowserRouter>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
+      {/* Put QueryClientProvider after other providers that don't depend on React hooks */}
+      <AuthProvider>
+        <QueryClientProvider client={queryClient}>
+          <Toaster />
+          <Sonner />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             
@@ -86,10 +97,10 @@ const App = () => (
             
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </AuthProvider>
-      </BrowserRouter>
+        </QueryClientProvider>
+      </AuthProvider>
     </TooltipProvider>
-  </QueryClientProvider>
+  </BrowserRouter>
 );
 
 export default App;
