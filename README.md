@@ -1,73 +1,134 @@
-# Welcome to your Lovable project
 
-## Project info
+# Virtual Dock Control Hub
 
-**URL**: https://lovable.dev/projects/7290c59c-cc7c-48c2-be23-9faa38a580f9
+A modern, responsive web application for managing Docker containers and QEMU virtual machines through a unified interface.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- **Docker Container Management**
+  - View, create, start, stop, and manage Docker containers
+  - Pull, push, tag, and delete Docker images
+  - Search Docker Hub for images
+  - Stream container logs in real-time
 
-**Use Lovable**
+- **QEMU Virtual Machine Management**
+  - Create, start, stop, and manage QEMU virtual machines
+  - Take and restore VM snapshots
+  - View VM console output
+  - Configure VM resources (CPU, memory, storage)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/7290c59c-cc7c-48c2-be23-9faa38a580f9) and start prompting.
+- **Unified Dashboard**
+  - Real-time resource usage monitoring
+  - System metrics visualization
+  - Quick access to all managed resources
 
-Changes made via Lovable will be committed automatically to this repo.
+- **Modern UI**
+  - Clean, responsive design
+  - Light and dark mode support
+  - Intuitive navigation
 
-**Use your preferred IDE**
+## Prerequisites
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Node.js 18 or higher
+- Docker Engine API accessible via REST
+- QEMU installed and accessible via REST API
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Configuration
 
-Follow these steps:
+To configure the API base URL, add the following environment variable:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+VITE_API_URL=http://localhost:3000
 ```
 
-**Edit a file directly in GitHub**
+You can use a `.env` file in the project root or set the environment variable directly.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Getting Started
 
-**Use GitHub Codespaces**
+### Development Setup
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd virtual-dock-control-hub
+   ```
 
-## What technologies are used for this project?
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-This project is built with:
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+4. Open your browser and navigate to http://localhost:8080
 
-## How can I deploy this project?
+### Docker Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/7290c59c-cc7c-48c2-be23-9faa38a580f9) and click on Share -> Publish.
+1. Build the Docker image:
+   ```bash
+   docker build -t virtual-dock-control-hub .
+   ```
 
-## Can I connect a custom domain to my Lovable project?
+2. Run the container:
+   ```bash
+   docker run -p 8080:80 -e VITE_API_URL=http://api-host:3000 virtual-dock-control-hub
+   ```
 
-Yes, you can!
+### docker-compose Setup
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Create a `docker-compose.yml` file:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```yaml
+version: '3'
+services:
+  # Frontend UI
+  frontend:
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      - VITE_API_URL=http://api:3000
+    depends_on:
+      - api
+  
+  # Docker API Gateway
+  api:
+    image: your-docker-api-gateway-image
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "3000:3000"
+  
+  # Mock QEMU API (for development/testing)
+  qemu-api:
+    image: your-qemu-api-image
+    ports:
+      - "3001:3001"
+```
+
+Start the services:
+```bash
+docker-compose up -d
+```
+
+## API Requirements
+
+This frontend expects the following API endpoints to be available:
+
+- Docker API: `/containers`, `/images`, etc. (following the Docker Engine API spec)
+- QEMU API: `/qemu/vms`, `/qemu/vms/:id/start`, etc.
+
+See the API services files in `src/services/` for details on the expected endpoints.
+
+## Authentication
+
+The application includes a simple authentication system with protected routes. 
+For production, you should implement proper authentication in your API server
+and update the `AuthContext.tsx` file accordingly.
+
+## License
+
+MIT
