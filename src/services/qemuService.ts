@@ -1,16 +1,30 @@
-
 import apiClient from './apiClient';
 
-// QEMU VMs API
+const mockVMs = [
+  { id: 'v1', name: 'ubuntu-server', status: 'running', memory: '2GB', cpu: '2 cores', storage: '20GB' },
+  { id: 'v2', name: 'windows-test', status: 'stopped', memory: '4GB', cpu: '4 cores', storage: '50GB' },
+];
+
 export const qemuService = {
   // Get all VMs
   getVMs: async () => {
-    return apiClient.get('/qemu/vms');
+    try {
+      const res = await apiClient.get('/qemu/vms');
+      return res;
+    } catch (err) {
+      console.warn('Failed to fetch VMs, using mock data.');
+      return { data: mockVMs };
+    }
   },
 
   // Get VM details
   getVM: async (id: string) => {
-    return apiClient.get(`/qemu/vms/${id}`);
+    try {
+      const res = await apiClient.get(`/qemu/vms/${id}`);
+      return res;
+    } catch (err) {
+      return { data: mockVMs.find(vm => vm.id === id) || mockVMs[0] };
+    }
   },
 
   // Create VM

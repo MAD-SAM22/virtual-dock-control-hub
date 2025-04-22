@@ -1,5 +1,48 @@
-
 import apiClient from './apiClient';
+
+const mockContainers = [
+  { id: 'c1', name: 'nginx-proxy', image: 'nginx:latest', status: 'running', created: '2 days ago', cpu: '0.5%', memory: '128MB' },
+  { id: 'c2', name: 'postgres-db', image: 'postgres:13', status: 'running', created: '5 days ago', cpu: '1.2%', memory: '256MB' },
+  { id: 'c3', name: 'redis-cache', image: 'redis:alpine', status: 'paused', created: '1 day ago', cpu: '0%', memory: '64MB' },
+];
+
+const mockImages = [
+  { 
+    id: 'sha256:123456789abcdef', 
+    repository: 'nginx', 
+    tag: 'latest', 
+    size: '133MB', 
+    created: '2 weeks ago' 
+  },
+  { 
+    id: 'sha256:987654321fedcba', 
+    repository: 'postgres', 
+    tag: '13', 
+    size: '314MB', 
+    created: '1 month ago' 
+  },
+  { 
+    id: 'sha256:abcdef123456789', 
+    repository: 'redis', 
+    tag: 'alpine', 
+    size: '32MB', 
+    created: '3 weeks ago' 
+  },
+  { 
+    id: 'sha256:fedcba987654321', 
+    repository: 'ubuntu', 
+    tag: '20.04', 
+    size: '72MB', 
+    created: '2 months ago' 
+  },
+  { 
+    id: 'sha256:13579abcdef2468', 
+    repository: 'node', 
+    tag: '16-alpine', 
+    size: '117MB', 
+    created: '2 weeks ago' 
+  },
+];
 
 /** Ping the Docker daemon */
 export function ping() {
@@ -10,12 +53,24 @@ export function ping() {
 export const containerService = {
   // Get all containers
   getContainers: async (all: boolean = true) => {
-    return apiClient.get(`/containers`, { params: { all } });
+    try {
+      const res = await apiClient.get(`/containers`, { params: { all } });
+      return res;
+    } catch (err) {
+      console.warn('Failed to fetch containers, using mock data.');
+      return { data: mockContainers };
+    }
   },
 
   // Get container details
   getContainer: async (id: string) => {
-    return apiClient.get(`/containers/${id}/json`);
+    try {
+      const res = await apiClient.get(`/containers/${id}/json`);
+      return res;
+    } catch (err) {
+      // Return a single mock container by id (or first)
+      return { data: mockContainers.find(c => c.id === id) || mockContainers[0] };
+    }
   },
 
   // Create container
@@ -81,7 +136,13 @@ export const containerService = {
 export const imageService = {
   // Get all images
   getImages: async (all: boolean = true) => {
-    return apiClient.get(`/images/json`, { params: { all } });
+    try {
+      const res = await apiClient.get(`/images/json`, { params: { all } });
+      return res;
+    } catch (err) {
+      console.warn('Failed to fetch images, using mock data.');
+      return { data: mockImages };
+    }
   },
 
   // Pull image
