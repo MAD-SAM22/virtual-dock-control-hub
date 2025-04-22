@@ -3,29 +3,39 @@ import React, { useEffect, useState } from 'react';
 import { ping } from '@/services/dockerService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader, AlertCircle, CheckCircle, Wifi, WifiOff } from 'lucide-react';
+import { toast } from 'sonner';
 
 const TestPage = () => {
   const [response, setResponse] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [apiUrl, setApiUrl] = useState<string>(import.meta.env.VITE_API_URL || 'http://localhost:3000');
+  const [status, setStatus] = useState<'online' | 'offline'>('offline');
 
   const testPing = async () => {
     setLoading(true);
     setError(null);
     try {
+      console.log('Sending ping request to Docker daemon...');
       const result = await ping();
+      console.log('Ping response success:', result);
       setResponse(JSON.stringify(result.data));
-      console.log('Ping response:', result);
+      setStatus('online');
+      toast.success('Connection successful!');
     } catch (err) {
       console.error('Ping error:', err);
+      setStatus('offline');
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      toast.error('Connection failed!');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('TestPage mounted, testing ping...');
+    console.log('Current API URL:', apiUrl);
     testPing();
   }, []);
 
@@ -37,13 +47,32 @@ const TestPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center">
             Docker Daemon Ping Test
-            <Button variant="outline" className="ml-auto" onClick={testPing} disabled={loading}>
-              {loading ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Test Connection
-            </Button>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="flex items-center mr-2">
+                {status === 'online' ? (
+                  <Wifi className="h-5 w-5 text-green-500 mr-2" />
+                ) : (
+                  <WifiOff className="h-5 w-5 text-destructive mr-2" />
+                )}
+                <span className={status === 'online' ? 'text-green-500' : 'text-destructive'}>
+                  {status === 'online' ? 'Online' : 'Offline'}
+                </span>
+              </div>
+              
+              <Button variant="outline" onClick={testPing} disabled={loading}>
+                {loading ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Test Connection
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 text-sm bg-muted p-4 rounded-md">
+            <p className="font-medium">API Configuration:</p>
+            <code className="block mt-1">BASE_URL: {apiUrl}</code>
+            <code className="block mt-1">Endpoint: /_ping</code>
+          </div>
+          
           {loading ? (
             <div className="flex items-center justify-center p-4">
               <Loader className="mr-2 h-6 w-6 animate-spin text-primary" />
@@ -56,6 +85,15 @@ const TestPage = () => {
                 <p className="font-medium">Connection Failed</p>
                 <p className="text-sm">{error}</p>
                 <p className="text-sm mt-2">Check that the Docker daemon is running and accessible.</p>
+                <div className="mt-4 p-3 bg-background/80 rounded-md text-xs">
+                  <p className="font-semibold mb-1">Troubleshooting tips:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Verify Docker daemon is running on {apiUrl}</li>
+                    <li>Check CORS settings on your backend</li>
+                    <li>Verify network connectivity (no firewalls blocking requests)</li>
+                    <li>Try using a proxy in your Vite config if needed</li>
+                  </ul>
+                </div>
               </div>
             </div>
           ) : response ? (
