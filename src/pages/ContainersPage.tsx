@@ -56,17 +56,44 @@ const ContainersPage = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState({ action: '', containerId: '' });
 
-  // Mock fetch function for containers
+  // Fetch containers via service API, fallback to mock on error and show info toast if so
   const fetchContainers = async () => {
     setIsLoading(true);
     try {
-      // In a real app, this would be an API call:
-      // const response = await containerService.getContainers(true);
-      // setContainers(response.data);
-      
-      // Mock data for demo
-      setTimeout(() => {
-        const mockContainers = [
+      const response = await containerService.getContainers(true);
+      if (
+        response && 
+        response.data && 
+        Array.isArray(response.data) && 
+        response.data.length > 0 &&
+        response.data[0].id // expects lowercase 'id' like 'c1'
+      ) {
+        setContainers(response.data);
+        setFilteredContainers(response.data);
+      } else if (
+        response && 
+        response.data && 
+        Array.isArray(response.data) && 
+        (response.data[0]?.Id || response.data[0]?.Names) // raw Docker API format
+      ) {
+        // Format Docker API data for local table
+        const formatted = response.data.map((c: any, idx: number) => ({
+          id: c.Id || `c-fallback-${idx}`,
+          name: c.Names ? (Array.isArray(c.Names) ? c.Names[0].replace(/^\//, '') : c.Names) : c.name || `container-${idx}`,
+          image: c.Image || c.image || '',
+          status: c.Status || c.status || '',
+          state: c.State || c.state || '',
+          created: c.Created ? new Date(c.Created * 1000).toISOString().slice(0, 19).replace('T', ' ') : '',
+          ports: c.Ports && Array.isArray(c.Ports)
+            ? c.Ports.map((p: any) => p.PrivatePort ? `${p.PrivatePort}/${p.Type}` : '').join(', ')
+            : '',
+        }));
+        setContainers(formatted);
+        setFilteredContainers(formatted);
+      } else {
+        // Unexpected data shape, fallback to mock
+        toast.info('Fetching Data Error: Using mock container data');
+        setContainers([
           { 
             id: 'c1', 
             name: 'nginx-proxy', 
@@ -112,16 +139,156 @@ const ContainersPage = () => {
             created: '2023-04-20 10:15:22',
             ports: '27017/tcp'
           },
-        ];
-        setContainers(mockContainers);
-        setFilteredContainers(mockContainers);
-        setIsLoading(false);
-      }, 1000);
+        ]);
+        setFilteredContainers([
+          { 
+            id: 'c1', 
+            name: 'nginx-proxy', 
+            image: 'nginx:latest', 
+            status: 'Up 2 days',
+            state: 'running',
+            created: '2023-04-20 14:32:15',
+            ports: '80/tcp, 443/tcp'
+          },
+          { 
+            id: 'c2', 
+            name: 'postgres-db', 
+            image: 'postgres:13', 
+            status: 'Up 5 days',
+            state: 'running',
+            created: '2023-04-15 09:12:44',
+            ports: '5432/tcp'
+          },
+          { 
+            id: 'c3', 
+            name: 'redis-cache', 
+            image: 'redis:alpine', 
+            status: 'Paused',
+            state: 'paused',
+            created: '2023-04-21 11:45:30',
+            ports: '6379/tcp'
+          },
+          { 
+            id: 'c4', 
+            name: 'backend-api', 
+            image: 'node:16-alpine', 
+            status: 'Exited (1) 3 hours ago',
+            state: 'exited',
+            created: '2023-04-19 18:22:10',
+            ports: '3000/tcp, 3001/tcp'
+          },
+          { 
+            id: 'c5', 
+            name: 'mongodb', 
+            image: 'mongo:latest', 
+            status: 'Up 1 day',
+            state: 'running',
+            created: '2023-04-20 10:15:22',
+            ports: '27017/tcp'
+          },
+        ]);
+      }
     } catch (error) {
       console.error('Error fetching containers:', error);
-      toast.error('Failed to fetch containers');
+      toast.info('Fetching Data Error: Using mock container data');
+      setContainers([
+        { 
+          id: 'c1', 
+          name: 'nginx-proxy', 
+          image: 'nginx:latest', 
+          status: 'Up 2 days',
+          state: 'running',
+          created: '2023-04-20 14:32:15',
+          ports: '80/tcp, 443/tcp'
+        },
+        { 
+          id: 'c2', 
+          name: 'postgres-db', 
+          image: 'postgres:13', 
+          status: 'Up 5 days',
+          state: 'running',
+          created: '2023-04-15 09:12:44',
+          ports: '5432/tcp'
+        },
+        { 
+          id: 'c3', 
+          name: 'redis-cache', 
+          image: 'redis:alpine', 
+          status: 'Paused',
+          state: 'paused',
+          created: '2023-04-21 11:45:30',
+          ports: '6379/tcp'
+        },
+        { 
+          id: 'c4', 
+          name: 'backend-api', 
+          image: 'node:16-alpine', 
+          status: 'Exited (1) 3 hours ago',
+          state: 'exited',
+          created: '2023-04-19 18:22:10',
+          ports: '3000/tcp, 3001/tcp'
+        },
+        { 
+          id: 'c5', 
+          name: 'mongodb', 
+          image: 'mongo:latest', 
+          status: 'Up 1 day',
+          state: 'running',
+          created: '2023-04-20 10:15:22',
+          ports: '27017/tcp'
+        },
+      ]);
+      setFilteredContainers([
+        { 
+          id: 'c1', 
+          name: 'nginx-proxy', 
+          image: 'nginx:latest', 
+          status: 'Up 2 days',
+          state: 'running',
+          created: '2023-04-20 14:32:15',
+          ports: '80/tcp, 443/tcp'
+        },
+        { 
+          id: 'c2', 
+          name: 'postgres-db', 
+          image: 'postgres:13', 
+          status: 'Up 5 days',
+          state: 'running',
+          created: '2023-04-15 09:12:44',
+          ports: '5432/tcp'
+        },
+        { 
+          id: 'c3', 
+          name: 'redis-cache', 
+          image: 'redis:alpine', 
+          status: 'Paused',
+          state: 'paused',
+          created: '2023-04-21 11:45:30',
+          ports: '6379/tcp'
+        },
+        { 
+          id: 'c4', 
+          name: 'backend-api', 
+          image: 'node:16-alpine', 
+          status: 'Exited (1) 3 hours ago',
+          state: 'exited',
+          created: '2023-04-19 18:22:10',
+          ports: '3000/tcp, 3001/tcp'
+        },
+        { 
+          id: 'c5', 
+          name: 'mongodb', 
+          image: 'mongo:latest', 
+          status: 'Up 1 day',
+          state: 'running',
+          created: '2023-04-20 10:15:22',
+          ports: '27017/tcp'
+        },
+      ]);
       setIsLoading(false);
+      return;
     }
+    setIsLoading(false);
   };
 
   useEffect(() => {
