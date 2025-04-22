@@ -1,5 +1,3 @@
-
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,95 +19,65 @@ import {
 } from "@/components/ui/tabs";
 import { toast } from 'sonner';
 import { Loader, Save } from 'lucide-react';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const SettingsPage = () => {
-  const [isSaving, setIsSaving] = useState(false);
-  const [apiSettings, setApiSettings] = useState({
-    apiEndpoint: 'http://localhost:3000',
-    apiTimeout: '30',
-    enableAuthentication: true,
-    username: 'admin',
-    password: '',
-    apiKey: 'sk_12345678901234567890',
-  });
-
-  const [preferences, setPreferences] = useState({
-    theme: 'system',
-    refreshInterval: '30',
-    enableNotifications: true,
-    notificationSound: true,
-    autoStartContainers: false,
-    confirmDangerous: true,
-    defaultLogLines: '100',
-  });
-
-  const [dockerSettings, setDockerSettings] = useState({
-    dockerHost: 'unix:///var/run/docker.sock',
-    dockerApiVersion: 'v1.41',
-    registryUrl: 'https://index.docker.io/v1/',
-    registryUsername: '',
-    registryPassword: '',
-    insecureRegistry: false,
-    pruneInterval: 'weekly',
-  });
-
-  const [qemuSettings, setQemuSettings] = useState({
-    qemuBinary: '/usr/bin/qemu-system-x86_64',
-    defaultVNCPort: '5900',
-    vncPassword: '',
-    vncKeyboardLayout: 'en-us',
-    isoDirectory: '/var/lib/qemu/iso',
-    vmDirectory: '/var/lib/qemu/vms',
-    enableKVM: true,
-    enableNesting: false,
-  });
+  const { 
+    settings, 
+    updateApiSettings, 
+    updatePreferences, 
+    updateDockerSettings, 
+    updateQemuSettings, 
+    saveSettings, 
+    isSaving 
+  } = useSettings();
+  const { setTheme } = useTheme();
 
   const handleApiSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setApiSettings({
-      ...apiSettings,
+    updateApiSettings({
       [name]: type === 'checkbox' ? checked : value,
     });
   };
 
   const handlePreferencesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setPreferences({
-      ...preferences,
+    updatePreferences({
       [name]: type === 'checkbox' ? checked : value,
     });
   };
 
   const handleDockerSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setDockerSettings({
-      ...dockerSettings,
+    updateDockerSettings({
       [name]: type === 'checkbox' ? checked : value,
     });
   };
 
   const handleQemuSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setQemuSettings({
-      ...qemuSettings,
+    updateQemuSettings({
       [name]: type === 'checkbox' ? checked : value,
     });
   };
 
   const handleSelectChange = (section: string, name: string, value: string) => {
     if (section === 'preferences') {
-      setPreferences({
-        ...preferences,
+      updatePreferences({
         [name]: value,
       });
+      
+      // Apply theme change immediately if selected
+      if (name === 'theme' && (value === 'light' || value === 'dark')) {
+        setTheme(value);
+      }
     } else if (section === 'docker') {
-      setDockerSettings({
-        ...dockerSettings,
+      updateDockerSettings({
         [name]: value,
       });
     } else if (section === 'qemu') {
-      setQemuSettings({
-        ...qemuSettings,
+      updateQemuSettings({
         [name]: value,
       });
     }
@@ -117,36 +85,27 @@ const SettingsPage = () => {
 
   const handleSwitchChange = (section: string, name: string, checked: boolean) => {
     if (section === 'api') {
-      setApiSettings({
-        ...apiSettings,
+      updateApiSettings({
         [name]: checked,
       });
     } else if (section === 'preferences') {
-      setPreferences({
-        ...preferences,
+      updatePreferences({
         [name]: checked,
       });
     } else if (section === 'docker') {
-      setDockerSettings({
-        ...dockerSettings,
+      updateDockerSettings({
         [name]: checked,
       });
     } else if (section === 'qemu') {
-      setQemuSettings({
-        ...qemuSettings,
+      updateQemuSettings({
         [name]: checked,
       });
     }
   };
 
   const handleSaveSettings = () => {
-    setIsSaving(true);
-    
-    // In a real app, this would be an API call to save settings
-    setTimeout(() => {
-      setIsSaving(false);
-      toast.success('Settings saved successfully');
-    }, 1000);
+    saveSettings();
+    toast.success('Settings saved successfully');
   };
 
   return (
@@ -193,7 +152,7 @@ const SettingsPage = () => {
               <div className="space-y-2">
                 <Label htmlFor="theme">Theme</Label>
                 <Select
-                  value={preferences.theme}
+                  value={settings.preferences.theme}
                   onValueChange={(value) => handleSelectChange('preferences', 'theme', value)}
                 >
                   <SelectTrigger>
@@ -213,7 +172,7 @@ const SettingsPage = () => {
                   id="refreshInterval"
                   name="refreshInterval"
                   type="number"
-                  value={preferences.refreshInterval}
+                  value={settings.preferences.refreshInterval}
                   onChange={handlePreferencesChange}
                 />
                 <p className="text-sm text-muted-foreground">
@@ -224,7 +183,7 @@ const SettingsPage = () => {
               <div className="space-y-2">
                 <Label htmlFor="defaultLogLines">Default Log Lines</Label>
                 <Select
-                  value={preferences.defaultLogLines}
+                  value={settings.preferences.defaultLogLines}
                   onValueChange={(value) => handleSelectChange('preferences', 'defaultLogLines', value)}
                 >
                   <SelectTrigger>
@@ -259,7 +218,7 @@ const SettingsPage = () => {
                 </div>
                 <Switch
                   id="enableNotifications"
-                  checked={preferences.enableNotifications}
+                  checked={settings.preferences.enableNotifications}
                   onCheckedChange={(checked) => handleSwitchChange('preferences', 'enableNotifications', checked)}
                 />
               </div>
@@ -273,9 +232,9 @@ const SettingsPage = () => {
                 </div>
                 <Switch
                   id="notificationSound"
-                  checked={preferences.notificationSound}
+                  checked={settings.preferences.notificationSound}
                   onCheckedChange={(checked) => handleSwitchChange('preferences', 'notificationSound', checked)}
-                  disabled={!preferences.enableNotifications}
+                  disabled={!settings.preferences.enableNotifications}
                 />
               </div>
               
@@ -288,7 +247,7 @@ const SettingsPage = () => {
                 </div>
                 <Switch
                   id="confirmDangerous"
-                  checked={preferences.confirmDangerous}
+                  checked={settings.preferences.confirmDangerous}
                   onCheckedChange={(checked) => handleSwitchChange('preferences', 'confirmDangerous', checked)}
                 />
               </div>
@@ -302,7 +261,7 @@ const SettingsPage = () => {
                 </div>
                 <Switch
                   id="autoStartContainers"
-                  checked={preferences.autoStartContainers}
+                  checked={settings.preferences.autoStartContainers}
                   onCheckedChange={(checked) => handleSwitchChange('preferences', 'autoStartContainers', checked)}
                 />
               </div>
@@ -324,7 +283,7 @@ const SettingsPage = () => {
                 <Input
                   id="apiEndpoint"
                   name="apiEndpoint"
-                  value={apiSettings.apiEndpoint}
+                  value={settings.apiSettings.apiEndpoint}
                   onChange={handleApiSettingsChange}
                 />
               </div>
@@ -335,7 +294,7 @@ const SettingsPage = () => {
                   id="apiTimeout"
                   name="apiTimeout"
                   type="number"
-                  value={apiSettings.apiTimeout}
+                  value={settings.apiSettings.apiTimeout}
                   onChange={handleApiSettingsChange}
                 />
               </div>
@@ -351,19 +310,19 @@ const SettingsPage = () => {
                 </div>
                 <Switch
                   id="enableAuthentication"
-                  checked={apiSettings.enableAuthentication}
+                  checked={settings.apiSettings.enableAuthentication}
                   onCheckedChange={(checked) => handleSwitchChange('api', 'enableAuthentication', checked)}
                 />
               </div>
               
-              {apiSettings.enableAuthentication && (
+              {settings.apiSettings.enableAuthentication && (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
                     <Input
                       id="username"
                       name="username"
-                      value={apiSettings.username}
+                      value={settings.apiSettings.username}
                       onChange={handleApiSettingsChange}
                     />
                   </div>
@@ -375,7 +334,7 @@ const SettingsPage = () => {
                       name="password"
                       type="password"
                       placeholder="••••••••"
-                      value={apiSettings.password}
+                      value={settings.apiSettings.password}
                       onChange={handleApiSettingsChange}
                     />
                   </div>
@@ -388,7 +347,7 @@ const SettingsPage = () => {
                       <Input
                         id="apiKey"
                         name="apiKey"
-                        value={apiSettings.apiKey}
+                        value={settings.apiSettings.apiKey}
                         onChange={handleApiSettingsChange}
                         className="font-mono"
                       />
@@ -396,8 +355,8 @@ const SettingsPage = () => {
                         variant="outline" 
                         onClick={() => {
                           // In a real app, this would generate a new API key
-                          setApiSettings({
-                            ...apiSettings,
+                          updateApiSettings({
+                            ...settings.apiSettings,
                             apiKey: `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
                           });
                           toast.info('New API key generated');
@@ -430,7 +389,7 @@ const SettingsPage = () => {
                 <Input
                   id="dockerHost"
                   name="dockerHost"
-                  value={dockerSettings.dockerHost}
+                  value={settings.dockerSettings.dockerHost}
                   onChange={handleDockerSettingsChange}
                 />
                 <p className="text-sm text-muted-foreground">
@@ -443,7 +402,7 @@ const SettingsPage = () => {
                 <Input
                   id="dockerApiVersion"
                   name="dockerApiVersion"
-                  value={dockerSettings.dockerApiVersion}
+                  value={settings.dockerSettings.dockerApiVersion}
                   onChange={handleDockerSettingsChange}
                 />
               </div>
@@ -451,7 +410,7 @@ const SettingsPage = () => {
               <div className="space-y-2">
                 <Label htmlFor="pruneInterval">Auto-Prune Interval</Label>
                 <Select
-                  value={dockerSettings.pruneInterval}
+                  value={settings.dockerSettings.pruneInterval}
                   onValueChange={(value) => handleSelectChange('docker', 'pruneInterval', value)}
                 >
                   <SelectTrigger>
@@ -482,7 +441,7 @@ const SettingsPage = () => {
                   <Input
                     id="registryUrl"
                     name="registryUrl"
-                    value={dockerSettings.registryUrl}
+                    value={settings.dockerSettings.registryUrl}
                     onChange={handleDockerSettingsChange}
                   />
                 </div>
@@ -492,7 +451,7 @@ const SettingsPage = () => {
                   <Input
                     id="registryUsername"
                     name="registryUsername"
-                    value={dockerSettings.registryUsername}
+                    value={settings.dockerSettings.registryUsername}
                     onChange={handleDockerSettingsChange}
                   />
                 </div>
@@ -504,7 +463,7 @@ const SettingsPage = () => {
                     name="registryPassword"
                     type="password"
                     placeholder="••••••••"
-                    value={dockerSettings.registryPassword}
+                    value={settings.dockerSettings.registryPassword}
                     onChange={handleDockerSettingsChange}
                   />
                 </div>
@@ -518,7 +477,7 @@ const SettingsPage = () => {
                   </div>
                   <Switch
                     id="insecureRegistry"
-                    checked={dockerSettings.insecureRegistry}
+                    checked={settings.dockerSettings.insecureRegistry}
                     onCheckedChange={(checked) => handleSwitchChange('docker', 'insecureRegistry', checked)}
                   />
                 </div>
@@ -541,7 +500,7 @@ const SettingsPage = () => {
                 <Input
                   id="qemuBinary"
                   name="qemuBinary"
-                  value={qemuSettings.qemuBinary}
+                  value={settings.qemuSettings.qemuBinary}
                   onChange={handleQemuSettingsChange}
                 />
               </div>
@@ -551,7 +510,7 @@ const SettingsPage = () => {
                 <Input
                   id="isoDirectory"
                   name="isoDirectory"
-                  value={qemuSettings.isoDirectory}
+                  value={settings.qemuSettings.isoDirectory}
                   onChange={handleQemuSettingsChange}
                 />
               </div>
@@ -561,7 +520,7 @@ const SettingsPage = () => {
                 <Input
                   id="vmDirectory"
                   name="vmDirectory"
-                  value={qemuSettings.vmDirectory}
+                  value={settings.qemuSettings.vmDirectory}
                   onChange={handleQemuSettingsChange}
                 />
               </div>
@@ -577,7 +536,7 @@ const SettingsPage = () => {
                 </div>
                 <Switch
                   id="enableKVM"
-                  checked={qemuSettings.enableKVM}
+                  checked={settings.qemuSettings.enableKVM}
                   onCheckedChange={(checked) => handleSwitchChange('qemu', 'enableKVM', checked)}
                 />
               </div>
@@ -591,7 +550,7 @@ const SettingsPage = () => {
                 </div>
                 <Switch
                   id="enableNesting"
-                  checked={qemuSettings.enableNesting}
+                  checked={settings.qemuSettings.enableNesting}
                   onCheckedChange={(checked) => handleSwitchChange('qemu', 'enableNesting', checked)}
                 />
               </div>
@@ -609,7 +568,7 @@ const SettingsPage = () => {
                   <Input
                     id="defaultVNCPort"
                     name="defaultVNCPort"
-                    value={qemuSettings.defaultVNCPort}
+                    value={settings.qemuSettings.defaultVNCPort}
                     onChange={handleQemuSettingsChange}
                   />
                 </div>
@@ -621,7 +580,7 @@ const SettingsPage = () => {
                     name="vncPassword"
                     type="password"
                     placeholder="••••••••"
-                    value={qemuSettings.vncPassword}
+                    value={settings.qemuSettings.vncPassword}
                     onChange={handleQemuSettingsChange}
                   />
                   <p className="text-sm text-muted-foreground">
@@ -632,7 +591,7 @@ const SettingsPage = () => {
                 <div className="space-y-2 mt-4">
                   <Label htmlFor="vncKeyboardLayout">VNC Keyboard Layout</Label>
                   <Select
-                    value={qemuSettings.vncKeyboardLayout}
+                    value={settings.qemuSettings.vncKeyboardLayout}
                     onValueChange={(value) => handleSelectChange('qemu', 'vncKeyboardLayout', value)}
                   >
                     <SelectTrigger>

@@ -12,10 +12,12 @@ import {
   LogOut, 
   Menu, 
   User, 
-  ChevronDown 
+  ChevronDown,
+  Beaker
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +42,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     { name: 'Containers', href: '/containers', icon: <Box className="h-5 w-5" /> },
     { name: 'Images', href: '/images', icon: <Image className="h-5 w-5" /> },
     { name: 'QEMU VMs', href: '/vms', icon: <Server className="h-5 w-5" /> },
+    { name: 'Test', href: '/test', icon: <Beaker className="h-5 w-5" /> },
     { name: 'Settings', href: '/settings', icon: <Settings className="h-5 w-5" /> },
     { name: 'Logs', href: '/logs', icon: <FileText className="h-5 w-5" /> },
   ];
@@ -148,6 +151,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             {navItems.find(item => item.href === location.pathname)?.name || 'Dashboard'}
           </h1>
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative rounded-full h-8 w-8 p-0">
