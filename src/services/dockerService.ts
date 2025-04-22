@@ -1,6 +1,11 @@
 
 import apiClient from './apiClient';
 
+/** Ping the Docker daemon */
+export function ping() {
+  return apiClient.get('/_ping');
+}
+
 // Docker Containers API
 export const containerService = {
   // Get all containers
