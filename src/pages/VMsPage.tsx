@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -61,15 +61,9 @@ const VMsPage = () => {
   const [selectedVM, setSelectedVM] = useState<VM | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
 
-  // Mock fetch function for VMs
   const fetchVMs = async () => {
     setIsLoading(true);
     try {
-      // In a real app, this would be an API call:
-      // const response = await qemuService.getVMs();
-      // setVMs(response.data);
-      
-      // Mock data for demo
       setTimeout(() => {
         const mockVMs = [
           { 
@@ -150,19 +144,16 @@ const VMsPage = () => {
   }, [searchTerm, vms]);
 
   const handleVMAction = async (action: string, vmId: string) => {
-    // Actions that need confirmation
     if (['delete'].includes(action)) {
       setConfirmAction({ action, vmId });
       setConfirmDialogOpen(true);
       return;
     }
 
-    // Console action
     if (action === 'console') {
       const vm = vms.find(v => v.id === vmId);
       if (vm) {
         setSelectedVM(vm);
-        // Generate mock console output
         const mockOutput = [
           'QEMU 6.2.0 monitor - type \'help\' for more information',
           '(qemu) info status',
@@ -182,14 +173,11 @@ const VMsPage = () => {
     }
 
     try {
-      // Simulate API call
       toast.promise(
-        // This would be the actual API call in a real app
         new Promise((resolve) => setTimeout(resolve, 1000)),
         {
           loading: `${action.charAt(0).toUpperCase() + action.slice(1)}ing VM...`,
           success: () => {
-            // Update VM state in the UI for demo
             if (action === 'start') {
               setVMs(vms.map(vm => 
                 vm.id === vmId ? { ...vm, status: 'running', uptime: 'Just started' } : vm
@@ -215,7 +203,6 @@ const VMsPage = () => {
                 description: 'VM snapshot has been saved'
               });
             }
-            
             return `VM ${action}ed successfully`;
           },
           error: `Failed to ${action} VM`,
@@ -233,13 +220,11 @@ const VMsPage = () => {
     
     try {
       toast.promise(
-        // This would be the actual API call in a real app
         new Promise((resolve) => setTimeout(resolve, 1000)),
         {
           loading: `${action.charAt(0).toUpperCase() + action.slice(1)}ing VM...`,
           success: () => {
             if (action === 'delete') {
-              // Remove VM from state
               setVMs(vms.filter(vm => vm.id !== vmId));
             }
             return `VM ${action}d successfully`;
@@ -267,10 +252,8 @@ const VMsPage = () => {
   };
 
   const handleCreateVM = (formData: any) => {
-    // This would submit the form data to the API in a real app
     console.log('Creating VM with:', formData);
 
-    // For demo, add a mock VM
     const newVM = {
       id: `vm${vms.length + 1}`,
       name: formData.name,
@@ -446,14 +429,12 @@ const VMsPage = () => {
                               <span>Create Snapshot</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
-                              // This would open edit dialog in a real app
                               toast.info('Edit dialog would open here');
                             }}>
                               <Edit className="mr-2 h-4 w-4" />
                               <span>Edit</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
-                              // This would open migrate dialog in a real app
                               toast.info('Migrate dialog would open here');
                             }}>
                               <ArrowRight className="mr-2 h-4 w-4" />
@@ -479,7 +460,6 @@ const VMsPage = () => {
         </CardContent>
       </Card>
 
-      {/* Confirmation Dialog */}
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -502,7 +482,6 @@ const VMsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Console Dialog */}
       <Dialog open={consoleDialogOpen} onOpenChange={setConsoleDialogOpen}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
