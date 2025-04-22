@@ -49,7 +49,7 @@ You can use a `.env` file in the project root or set the environment variable di
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/MAD-SAM22/virtual-dock-control-hub.git
    cd virtual-dock-control-hub
    ```
 
