@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -11,7 +12,14 @@ export const qemuService = {
   getVMs: async () => {
     try {
       const res = await apiClient.get('/qemu/vms');
-      return res;
+      
+      if (res && res.data && Array.isArray(res.data)) {
+        return res;
+      } else {
+        console.warn('Unexpected VM data format received, using mock data.');
+        toast.info('Fetching Data Error: Using mock VM data');
+        return { data: mockVMs };
+      }
     } catch (err) {
       console.warn('Failed to fetch VMs, using mock data.');
       toast.info('Fetching Data Error: Using mock VM data');

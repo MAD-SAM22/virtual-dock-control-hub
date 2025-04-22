@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -140,9 +141,26 @@ export const imageService = {
   getImages: async (all: boolean = true) => {
     try {
       const res = await apiClient.get(`/images/json`, { params: { all } });
-      return res;
+      
+      if (res && res.data && Array.isArray(res.data)) {
+        // API call successful, transform the data to match our expected format
+        const formattedImages = res.data.map(img => ({
+          id: img.Id,
+          repository: (img.RepoTags && img.RepoTags.length > 0) ? img.RepoTags[0].split(':')[0] : 'none',
+          tag: (img.RepoTags && img.RepoTags.length > 0) ? img.RepoTags[0].split(':')[1] : 'none',
+          size: `${Math.round(img.Size / (1024 * 1024))}MB`,
+          created: new Date(img.Created * 1000).toLocaleDateString()
+        }));
+        
+        return { data: formattedImages };
+      } else {
+        // Response exists but data format is unexpected
+        console.warn('Unexpected image data format received, using mock data.');
+        toast.info('Fetching Data Error: Using mock image data');
+        return { data: mockImages };
+      }
     } catch (err) {
-      console.warn('Failed to fetch images, using mock data.');
+      console.warn('Failed to fetch images, using mock data.', err);
       toast.info('Fetching Data Error: Using mock image data');
       return { data: mockImages };
     }
