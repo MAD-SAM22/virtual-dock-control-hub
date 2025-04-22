@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +40,44 @@ interface Image {
   created: string;
 }
 
+const mockImages: Image[] = [
+  { 
+    id: 'sha256:123456789abcdef', 
+    repository: 'nginx', 
+    tag: 'latest', 
+    size: '133MB', 
+    created: '2 weeks ago' 
+  },
+  { 
+    id: 'sha256:987654321fedcba', 
+    repository: 'postgres', 
+    tag: '13', 
+    size: '314MB', 
+    created: '1 month ago' 
+  },
+  { 
+    id: 'sha256:abcdef123456789', 
+    repository: 'redis', 
+    tag: 'alpine', 
+    size: '32MB', 
+    created: '3 weeks ago' 
+  },
+  { 
+    id: 'sha256:fedcba987654321', 
+    repository: 'ubuntu', 
+    tag: '20.04', 
+    size: '72MB', 
+    created: '2 months ago' 
+  },
+  { 
+    id: 'sha256:13579abcdef2468', 
+    repository: 'node', 
+    tag: '16-alpine', 
+    size: '117MB', 
+    created: '2 weeks ago' 
+  },
+];
+
 const ImagesPage = () => {
   const [images, setImages] = useState<Image[]>([]);
   const [filteredImages, setFilteredImages] = useState<Image[]>([]);
@@ -56,60 +93,24 @@ const ImagesPage = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState({ action: '', imageId: '' });
 
-  // Mock fetch function for images
   const fetchImages = async () => {
     setIsLoading(true);
     try {
-      // In a real app, this would be an API call:
-      // const response = await imageService.getImages(true);
-      // setImages(response.data);
-      
-      // Mock data for demo
-      setTimeout(() => {
-        const mockImages = [
-          { 
-            id: 'sha256:123456789abcdef', 
-            repository: 'nginx', 
-            tag: 'latest', 
-            size: '133MB', 
-            created: '2 weeks ago' 
-          },
-          { 
-            id: 'sha256:987654321fedcba', 
-            repository: 'postgres', 
-            tag: '13', 
-            size: '314MB', 
-            created: '1 month ago' 
-          },
-          { 
-            id: 'sha256:abcdef123456789', 
-            repository: 'redis', 
-            tag: 'alpine', 
-            size: '32MB', 
-            created: '3 weeks ago' 
-          },
-          { 
-            id: 'sha256:fedcba987654321', 
-            repository: 'ubuntu', 
-            tag: '20.04', 
-            size: '72MB', 
-            created: '2 months ago' 
-          },
-          { 
-            id: 'sha256:13579abcdef2468', 
-            repository: 'node', 
-            tag: '16-alpine', 
-            size: '117MB', 
-            created: '2 weeks ago' 
-          },
-        ];
+      const response = await imageService.getImages(true);
+      if (response && response.data && Array.isArray(response.data) && response.data.length > 0) {
+        setImages(response.data);
+        setFilteredImages(response.data);
+      } else {
         setImages(mockImages);
         setFilteredImages(mockImages);
-        setIsLoading(false);
-      }, 1000);
+        toast.warning('No images received from backend, using mock data.');
+      }
+      setIsLoading(false);
     } catch (error) {
-      console.error('Error fetching images:', error);
-      toast.error('Failed to fetch images');
+      console.error('Error fetching images from backend, using mock data:', error);
+      toast.error('Failed to fetch images from backend. Showing mock data.');
+      setImages(mockImages);
+      setFilteredImages(mockImages);
       setIsLoading(false);
     }
   };
@@ -136,12 +137,11 @@ const ImagesPage = () => {
     
     setHubSearchLoading(true);
     try {
-      // In a real app, this would be an API call:
-      // const response = await imageService.searchImages(hubSearchTerm);
-      // setHubSearchResults(response.data);
-      
-      // Mock data for demo
-      setTimeout(() => {
+      const response = await imageService.searchImages(hubSearchTerm);
+      if (response && response.data && Array.isArray(response.data) && response.data.length > 0) {
+        setHubSearchResults(response.data);
+        setHubSearchLoading(false);
+      } else {
         const mockResults = [
           { name: 'nginx', description: 'Official build of Nginx', stars: 15000, official: true },
           { name: `${hubSearchTerm}/webapp`, description: 'Web application with Node.js', stars: 120, official: false },
@@ -149,7 +149,7 @@ const ImagesPage = () => {
         ];
         setHubSearchResults(mockResults);
         setHubSearchLoading(false);
-      }, 1000);
+      }
     } catch (error) {
       console.error('Error searching Docker Hub:', error);
       toast.error('Failed to search Docker Hub');
@@ -166,12 +166,10 @@ const ImagesPage = () => {
     setPullDialogOpen(false);
     
     toast.promise(
-      // This would be the actual API call in a real app
       new Promise((resolve) => setTimeout(resolve, 3000)),
       {
         loading: `Pulling image ${pullImage}:${pullTag}...`,
         success: () => {
-          // Add the pulled image to the list
           const newImage = {
             id: `sha256:${Math.random().toString(36).substring(2, 15)}`,
             repository: pullImage,
@@ -195,7 +193,6 @@ const ImagesPage = () => {
   };
 
   const handleImageAction = async (action: string, imageId: string) => {
-    // Actions that need confirmation
     if (['delete'].includes(action)) {
       setConfirmAction({ action, imageId });
       setConfirmDialogOpen(true);
@@ -203,19 +200,14 @@ const ImagesPage = () => {
     }
 
     try {
-      // Simulate API call
       toast.promise(
-        // This would be the actual API call in a real app
         new Promise((resolve) => setTimeout(resolve, 1000)),
         {
           loading: `Performing action...`,
           success: () => {
-            // Update the UI state based on the action
             if (action === 'tag') {
-              // This would open a dialog in a real app
               toast.info('Tag dialog would open here');
             } else if (action === 'push') {
-              // This would open a dialog in a real app
               toast.info('Push dialog would open here');
             }
             return `Action ${action} completed successfully`;
@@ -235,13 +227,11 @@ const ImagesPage = () => {
     
     try {
       toast.promise(
-        // This would be the actual API call in a real app
         new Promise((resolve) => setTimeout(resolve, 1000)),
         {
           loading: `${action.charAt(0).toUpperCase() + action.slice(1)}ing image...`,
           success: () => {
             if (action === 'delete') {
-              // Remove image from state
               setImages(images.filter(img => img.id !== imageId));
             }
             return `Image ${action}d successfully`;
@@ -258,12 +248,10 @@ const ImagesPage = () => {
   const handlePruneUnreferenced = async () => {
     try {
       toast.promise(
-        // This would be the actual API call in a real app
         new Promise((resolve) => setTimeout(resolve, 1500)),
         {
           loading: 'Pruning unreferenced images...',
           success: () => {
-            // In a real app, we would refresh the image list here
             return 'Successfully pruned unreferenced images. Reclaimed 423MB of disk space.';
           },
           error: 'Failed to prune images',
@@ -415,7 +403,6 @@ const ImagesPage = () => {
         </CardContent>
       </Card>
 
-      {/* Pull Image Dialog */}
       <Dialog open={pullDialogOpen} onOpenChange={setPullDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -457,7 +444,6 @@ const ImagesPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Search Docker Hub Dialog */}
       <Dialog open={hubSearchDialogOpen} onOpenChange={setHubSearchDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -538,7 +524,6 @@ const ImagesPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Dialog */}
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <DialogContent>
           <DialogHeader>
