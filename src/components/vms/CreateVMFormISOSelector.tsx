@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,13 @@ import { DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import ISOFileSelector from './ISOFileSelector';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { InfoIcon } from 'lucide-react';
 
 interface CreateVMFormProps {
   onSubmit: (data: any) => void;
@@ -34,6 +42,8 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
     diskSize: 10,
     os: '',
     iso: '',
+    customISOPath: '',
+    useCustomISOPath: false,
     networkType: 'bridge',
     networkBridge: 'br0',
     bootOrder: ['cdrom', 'disk', 'network'],
@@ -51,7 +61,19 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    // Format the data for backend
+    const submissionData = {
+      ...formData,
+      // If using custom path, use that instead of iso name
+      iso: formData.useCustomISOPath ? formData.customISOPath : formData.iso,
+    };
+    
+    // Remove fields not needed by backend
+    delete submissionData.useCustomISOPath;
+    delete submissionData.customISOPath;
+    
+    onSubmit(submissionData);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -116,6 +138,22 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
     }
   };
 
+  const FeatureTooltip = ({ children, content }: { children: React.ReactNode, content: string }) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="inline-flex items-center">
+            {children}
+            <InfoIcon className="h-4 w-4 ml-1 text-muted-foreground" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{content}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
   return (
     <form onSubmit={handleSubmit}>
       <Tabs defaultValue="basic">
@@ -158,11 +196,18 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
                 <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              For display purposes only, not used for VM configuration
+            </p>
           </div>
           
           <ISOFileSelector 
-            selectedISO={formData.iso} 
+            selectedISO={formData.iso}
             onISOChange={(iso) => handleSelectChange('iso', iso)}
+            customISOPath={formData.customISOPath}
+            onCustomISOPathChange={(path) => handleSelectChange('customISOPath', path)}
+            useCustomPath={formData.useCustomISOPath}
+            onUseCustomPathChange={(use) => handleCheckboxChange('useCustomISOPath', use)}
           />
           
           <div className="space-y-2">
@@ -285,8 +330,10 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
           </div>
           
           <div className="space-y-2">
-            <Label>Boot Order</Label>
-            <div className="space-y-2 border rounded-md p-2">
+            <FeatureTooltip content="Boot order is currently fixed to ISO→Disk→Network in the backend">
+              <Label className="opacity-60">Boot Order (Backend Default)</Label>
+            </FeatureTooltip>
+            <div className="space-y-2 border rounded-md p-2 opacity-60">
               {formData.bootOrder.map((device, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <span className="text-sm">
@@ -297,8 +344,7 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => moveBootOption(index, 'up')}
-                      disabled={index === 0}
+                      disabled={true}
                     >
                       ↑
                     </Button>
@@ -306,8 +352,7 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => moveBootOption(index, 'down')}
-                      disabled={index === formData.bootOrder.length - 1}
+                      disabled={true}
                     >
                       ↓
                     </Button>
@@ -315,15 +360,21 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
                 </div>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Boot order customization not yet supported in current backend
+            </p>
           </div>
         </TabsContent>
         
         <TabsContent value="advanced" className="space-y-4 mt-4">
           <div className="space-y-2">
-            <Label htmlFor="displayType">Display Type</Label>
+            <FeatureTooltip content="Display settings not yet fully supported in current backend">
+              <Label htmlFor="displayType" className="opacity-60">Display Type</Label>
+            </FeatureTooltip>
             <Select
               value={formData.displayType}
               onValueChange={(value) => handleSelectChange('displayType', value)}
+              disabled
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select display type" />
@@ -334,29 +385,36 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
                 <SelectItem value="none">None (Headless)</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              VNC display not configurable in current backend
+            </p>
           </div>
           
-          {formData.displayType === 'vnc' && (
-            <div className="space-y-2">
-              <Label htmlFor="vncPort">VNC Port (optional)</Label>
-              <Input
-                id="vncPort"
-                name="vncPort"
-                placeholder="5900"
-                value={formData.vncPort}
-                onChange={handleChange}
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave empty for automatic port assignment
-              </p>
-            </div>
-          )}
+          <div className="space-y-2">
+            <FeatureTooltip content="VNC port configuration not yet supported in current backend">
+              <Label htmlFor="vncPort" className="opacity-60">VNC Port (optional)</Label>
+            </FeatureTooltip>
+            <Input
+              id="vncPort"
+              name="vncPort"
+              placeholder="5900"
+              value={formData.vncPort}
+              onChange={handleChange}
+              disabled
+            />
+            <p className="text-xs text-muted-foreground">
+              Backend handles VNC port assignment automatically
+            </p>
+          </div>
           
           <div className="space-y-2">
-            <Label htmlFor="keyboardLayout">Keyboard Layout</Label>
+            <FeatureTooltip content="Keyboard layout selection not yet supported in current backend">
+              <Label htmlFor="keyboardLayout" className="opacity-60">Keyboard Layout</Label>
+            </FeatureTooltip>
             <Select
               value={formData.keyboardLayout}
               onValueChange={(value) => handleSelectChange('keyboardLayout', value)}
+              disabled
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select keyboard layout" />
@@ -371,6 +429,9 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
                 <SelectItem value="ja">Japanese</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Keyboard layout selection not yet available in current backend
+            </p>
           </div>
           
           <div className="space-y-1">
@@ -393,11 +454,14 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
                 id="enableNestedVirt"
                 checked={formData.enableNestedVirt}
                 onCheckedChange={(checked) => handleCheckboxChange('enableNestedVirt', !!checked)}
+                disabled
               />
-              <Label htmlFor="enableNestedVirt">Enable nested virtualization</Label>
+              <FeatureTooltip content="Nested virtualization not yet supported in current backend">
+                <Label htmlFor="enableNestedVirt" className="opacity-60">Enable nested virtualization</Label>
+              </FeatureTooltip>
             </div>
             <p className="text-xs text-muted-foreground ml-6">
-              Allows running VMs inside this VM
+              Not yet supported in current backend
             </p>
           </div>
           

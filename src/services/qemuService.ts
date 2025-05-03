@@ -1,4 +1,3 @@
-
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -69,20 +68,40 @@ export const qemuService = {
   // Upload ISO file
   uploadISO: async (file: File): Promise<{ name: string, size: string }> => {
     try {
+      // Validate file size (100MB limit as an example, adjust as needed)
+      const maxSize = 100 * 1024 * 1024; // 100MB
+      if (file.size > maxSize) {
+        throw new Error(`File is too large. Maximum size is ${maxSize / (1024 * 1024)}MB.`);
+      }
+      
+      // Validate file type
+      if (!file.name.toLowerCase().endsWith('.iso')) {
+        throw new Error('Only .iso files are allowed.');
+      }
+      
       const formData = new FormData();
       formData.append('iso', file);
       
       const response = await apiClient.post('/qemu/upload-iso', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-        }
+        },
+        // Add timeout for large files
+        timeout: 300000, // 5 minutes
       });
       
       toast.success(`ISO file ${file.name} uploaded successfully`);
       return response.data.file;
     } catch (err: any) {
       console.error('Error uploading ISO file:', err);
-      toast.error(err.response?.data?.error || 'Failed to upload ISO file');
+      // Handle specific errors
+      if (err.response?.status === 413) {
+        toast.error('File is too large to upload. Please check server limits.');
+      } else if (err.code === 'ECONNABORTED') {
+        toast.error('Upload timed out. The file may be too large or the network is slow.');
+      } else {
+        toast.error(err.response?.data?.error || err.message || 'Failed to upload ISO file');
+      }
       throw err;
     }
   },
@@ -103,10 +122,14 @@ export const qemuService = {
   // Create VM
   createVM: async (data: any) => {
     try {
+      console.log('Creating VM with data:', data);
       const response = await apiClient.post('/qemu/create-vm', data);
+      toast.success(`VM ${data.name} created successfully`);
       return response;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating VM:', err);
+      const errorMessage = err.response?.data?.error || 'Failed to create VM';
+      toast.error(errorMessage);
       throw err;
     }
   },
