@@ -99,7 +99,7 @@ const ISOFileSelector = ({ selectedISO, onISOChange }: ISOFileSelectorProps) => 
             </SelectTrigger>
             <SelectContent>
               {isoFiles.length === 0 ? (
-                <SelectItem value="" disabled>No ISO files available</SelectItem>
+                <div className="py-2 px-2 text-sm text-muted-foreground">No ISO files available</div>
               ) : (
                 isoFiles.map(file => (
                   <SelectItem key={file.name} value={file.name}>

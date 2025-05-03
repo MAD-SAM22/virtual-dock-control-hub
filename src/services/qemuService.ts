@@ -1,4 +1,3 @@
-
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -26,8 +25,8 @@ export interface ISOFile {
 }
 
 const mockVMs = [
-  { id: 'v1', name: 'ubuntu-server', status: 'running', memory: '2GB', cpu: '2 cores', storage: '20GB' },
-  { id: 'v2', name: 'windows-test', status: 'stopped', memory: '4GB', cpu: '4 cores', storage: '50GB' },
+  { id: 'v1', name: 'ubuntu-server', status: 'running', memory: '2GB', cpus: '2', storage: '20GB' },
+  { id: 'v2', name: 'windows-test', status: 'stopped', memory: '4GB', cpus: '4', storage: '50GB' },
 ];
 
 export const qemuService = {
@@ -44,12 +43,12 @@ export const qemuService = {
       } else {
         console.warn('Unexpected VM data format received, using mock data.');
         toast.info('Fetching Data: Using mock VM data');
-        return { data: mockVMs as unknown as VMInfo[] };
+        return { data: mockVMs as VMInfo[] };
       }
     } catch (err) {
       console.warn('Failed to fetch VMs, using mock data.', err);
       toast.info('Fetching Data: Using mock VM data');
-      return { data: mockVMs as unknown as VMInfo[] };
+      return { data: mockVMs as VMInfo[] };
     }
   },
 
@@ -65,12 +64,14 @@ export const qemuService = {
       } else {
         console.warn(`Unexpected VM detail format for VM ${id}, using mock data.`);
         toast.info('Fetching Data: Using mock VM details');
-        return { data: mockVMs.find(vm => vm.id === id) || mockVMs[0] } as { data: VMInfo };
+        const mockVM = mockVMs.find(vm => vm.id === id) || mockVMs[0];
+        return { data: mockVM as VMInfo };
       }
     } catch (err) {
       console.warn(`Failed to fetch VM details for ${id}, using mock data.`, err);
       toast.info('Fetching Data: Using mock VM details');
-      return { data: mockVMs.find(vm => vm.id === id) || mockVMs[0] } as { data: VMInfo };
+      const mockVM = mockVMs.find(vm => vm.id === id) || mockVMs[0];
+      return { data: mockVM as VMInfo };
     }
   },
 
