@@ -21,6 +21,7 @@ import { DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import ISOFileSelector from './ISOFileSelector';
+import ExistingDiskSelector from './ExistingDiskSelector';
 import { 
   Tooltip,
   TooltipContent,
@@ -39,7 +40,7 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
     name: '',
     cpus: 1,
     memory: 1,
-    diskSize: 10,
+    diskName: '',
     os: '',
     iso: '',
     customISOPath: '',
@@ -48,7 +49,6 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
     networkBridge: 'br0',
     enableKVM: true,
     enableEFI: false,
-    diskFormat: 'qcow2',
     diskBus: 'virtio',
     networkModel: 'virtio-net',
     customArgs: '',
@@ -202,37 +202,13 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
               onValueChange={(value) => handleSliderChange('memory', value)}
             />
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="diskSize">Disk Size (GB): {formData.diskSize}</Label>
-            <Slider
-              value={[formData.diskSize]}
-              min={5}
-              max={500}
-              step={5}
-              onValueChange={(value) => handleSliderChange('diskSize', value)}
-            />
-          </div>
         </TabsContent>
         
         <TabsContent value="storage" className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="diskFormat">Disk Format</Label>
-            <Select
-              value={formData.diskFormat}
-              onValueChange={(value) => handleSelectChange('diskFormat', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select disk format" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="qcow2">QCOW2 (Recommended)</SelectItem>
-                <SelectItem value="raw">Raw</SelectItem>
-                <SelectItem value="vdi">VDI</SelectItem>
-                <SelectItem value="vmdk">VMDK</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <ExistingDiskSelector 
+            selectedDisk={formData.diskName}
+            onDiskChange={(diskName) => handleSelectChange('diskName', diskName)}
+          />
           
           <div className="space-y-2">
             <Label htmlFor="diskBus">Disk Interface</Label>

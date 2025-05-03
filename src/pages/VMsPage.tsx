@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -37,7 +37,7 @@ import {
 import { toast } from 'sonner';
 import { VMInfo, qemuService } from '@/services/qemuService';
 import CreateVMForm from '@/components/vms/CreateVMFormISOSelector';
-import VMListLoader from '@/components/vms/VMListLoader';
+import VMListLoader, { VMListLoaderRef } from '@/components/vms/VMListLoader';
 import {
   Table,
   TableBody,
@@ -59,7 +59,8 @@ const VMsPage = () => {
   const [selectedVM, setSelectedVM] = useState<VMInfo | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [refetchTrigger, setRefetchTrigger] = useState(0); // Add refetch trigger state
+  const [refetchTrigger, setRefetchTrigger] = useState(0); 
+  const vmLoaderRef = useRef<VMListLoaderRef>(null);
 
   const handleVMsLoaded = (loadedVMs: VMInfo[]) => {
     console.log('VMs loaded in page component:', loadedVMs);
@@ -68,14 +69,12 @@ const VMsPage = () => {
     setIsLoading(false);
   };
 
-  // Modify this to use refetch trigger instead of direct API call
   const triggerRefresh = () => {
     console.log('Triggering VM list refresh');
     setIsLoading(true);
     setRefetchTrigger(prev => prev + 1);
   };
 
-  // Filter VMs based on search term
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     if (term.trim() === '') {
@@ -191,7 +190,7 @@ const VMsPage = () => {
       
       setCreateDialogOpen(false);
       toast.success('VM created successfully');
-      triggerRefresh(); // Use the trigger refresh instead of fetchVMs
+      triggerRefresh();
     } catch (error) {
       console.error('Error creating VM:', error);
       toast.error('Failed to create VM');
@@ -245,7 +244,11 @@ const VMsPage = () => {
           <CardDescription>Manage your QEMU VMs</CardDescription>
         </CardHeader>
         <CardContent>
-          <VMListLoader onVMsLoaded={handleVMsLoaded} refetchTrigger={refetchTrigger}>
+          <VMListLoader 
+            onVMsLoaded={handleVMsLoaded} 
+            refetchTrigger={refetchTrigger}
+            ref={vmLoaderRef}
+          >
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>

@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -136,6 +137,15 @@ export const qemuService = {
   createVM: async (data: any) => {
     try {
       console.log('Creating VM with data:', data);
+      // Log whether we're using an existing disk
+      if (data.diskName) {
+        console.log(`Using existing disk: ${data.diskName}`);
+      } else if (data.diskSize) {
+        console.log(`Creating new disk with size: ${data.diskSize}GB`);
+      } else {
+        console.log('No disk information provided');
+      }
+      
       const response = await apiClient.post('/qemu/create-vm', data);
       toast.success(`VM ${data.name} created successfully`);
       return response;
