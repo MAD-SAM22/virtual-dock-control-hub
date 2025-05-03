@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,56 +36,43 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { qemuService } from '@/services/qemuService';
-import CreateVMForm from '@/components/vms/CreateVMForm';
-
-interface VM {
-  id: string;
-  name: string;
-  status: string;
-  cpu: string;
-  memory: string;
-  storage: string;
-  os: string;
-  uptime?: string;
-}
+import { qemuService, VMInfo } from '@/services/qemuService';
+import CreateVMForm from '@/components/vms/CreateVMFormISOSelector';
 
 const VMsPage = () => {
-  const [vms, setVMs] = useState<VM[]>([]);
-  const [filteredVMs, setFilteredVMs] = useState<VM[]>([]);
+  const [vms, setVMs] = useState<VMInfo[]>([]);
+  const [filteredVMs, setFilteredVMs] = useState<VMInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState({ action: '', vmId: '' });
   const [consoleDialogOpen, setConsoleDialogOpen] = useState(false);
-  const [selectedVM, setSelectedVM] = useState<VM | null>(null);
+  const [selectedVM, setSelectedVM] = useState<VMInfo | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
 
   useEffect(() => {
-    // Try to fetch QEMU VMs on page load
-    qemuService.getVMs()
-      .then((res) => {
-        console.log('Fetched QEMU VMs:', res?.data);
-      })
-      .catch((err) => {
-        console.warn('Error fetching QEMU VMs:', err);
-      });
-      
-    // Fetch images
+    // Fetch VMs on page load
     fetchVMs();
   }, []);
 
   const fetchVMs = async () => {
     setIsLoading(true);
     try {
-      setTimeout(() => {
+      const response = await qemuService.getVMs();
+      console.log('Fetched VMs:', response.data);
+      
+      if (response.data && Array.isArray(response.data)) {
+        setVMs(response.data);
+        setFilteredVMs(response.data);
+      } else {
+        // Fallback to mock data if needed
         const mockVMs = [
           { 
             id: 'vm1', 
             name: 'ubuntu-server', 
             status: 'running', 
-            cpu: '2 vCPUs', 
+            cpus: '2', 
             memory: '2 GB', 
             storage: '20 GB',
             os: 'Ubuntu 22.04',
@@ -94,54 +82,49 @@ const VMsPage = () => {
             id: 'vm2', 
             name: 'windows-test', 
             status: 'stopped', 
-            cpu: '4 vCPUs', 
+            cpus: '4', 
             memory: '8 GB', 
             storage: '50 GB',
             os: 'Windows Server 2019'
           },
-          { 
-            id: 'vm3', 
-            name: 'centos-web', 
-            status: 'running', 
-            cpu: '1 vCPU', 
-            memory: '1 GB', 
-            storage: '10 GB',
-            os: 'CentOS 8',
-            uptime: '14 days, 12 hours'
-          },
-          { 
-            id: 'vm4', 
-            name: 'debian-db', 
-            status: 'paused', 
-            cpu: '2 vCPUs', 
-            memory: '4 GB', 
-            storage: '40 GB',
-            os: 'Debian 11'
-          },
-          { 
-            id: 'vm5', 
-            name: 'alpine-test', 
-            status: 'stopped', 
-            cpu: '1 vCPU', 
-            memory: '512 MB', 
-            storage: '5 GB',
-            os: 'Alpine Linux'
-          },
-        ];
+        ] as VMInfo[];
+        
         setVMs(mockVMs);
         setFilteredVMs(mockVMs);
-        setIsLoading(false);
-      }, 1000);
+      }
     } catch (error) {
       console.error('Error fetching VMs:', error);
       toast.error('Failed to fetch VMs');
+      
+      // Fallback mock data
+      const mockVMs = [
+        { 
+          id: 'vm1', 
+          name: 'ubuntu-server', 
+          status: 'running', 
+          cpus: '2', 
+          memory: '2 GB', 
+          storage: '20 GB',
+          os: 'Ubuntu 22.04',
+          uptime: '2 days, 5 hours'
+        },
+        { 
+          id: 'vm2', 
+          name: 'windows-test', 
+          status: 'stopped', 
+          cpus: '4', 
+          memory: '8 GB', 
+          storage: '50 GB',
+          os: 'Windows Server 2019'
+        },
+      ] as VMInfo[];
+      
+      setVMs(mockVMs);
+      setFilteredVMs(mockVMs);
+    } finally {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchVMs();
-  }, []);
 
   useEffect(() => {
     if (searchTerm.trim() === '') {
@@ -150,7 +133,7 @@ const VMsPage = () => {
       const filtered = vms.filter(
         vm => 
           vm.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          vm.os.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (vm.os?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
           vm.id.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredVMs(filtered);
@@ -168,63 +151,98 @@ const VMsPage = () => {
       const vm = vms.find(v => v.id === vmId);
       if (vm) {
         setSelectedVM(vm);
-        const mockOutput = [
-          'QEMU 6.2.0 monitor - type \'help\' for more information',
-          '(qemu) info status',
-          'VM status: running',
-          '(qemu) info cpus',
-          'CPU #0: thread_id=12345',
-          'CPU #1: thread_id=12346',
-          '(qemu) info block',
-          'drive-virtio-disk0: /var/lib/qemu/images/disk.qcow2 (qcow2)',
-          'drive-ide0-0-0: /var/lib/qemu/images/cd.iso (raw, read-only)',
-          '(qemu) _'
-        ];
-        setConsoleOutput(mockOutput);
+        
+        try {
+          // Try to fetch real console output, fallback to mock
+          const consoleData = await qemuService.getConsoleOutput(vmId);
+          if (consoleData && consoleData.data) {
+            setConsoleOutput(Array.isArray(consoleData.data) ? consoleData.data : [consoleData.data.toString()]);
+          } else {
+            const mockOutput = [
+              'QEMU 6.2.0 monitor - type \'help\' for more information',
+              '(qemu) info status',
+              'VM status: running',
+              '(qemu) info cpus',
+              'CPU #0: thread_id=12345',
+              'CPU #1: thread_id=12346',
+              '(qemu) info block',
+              'drive-virtio-disk0: /var/lib/qemu/images/disk.qcow2 (qcow2)',
+              'drive-ide0-0-0: /var/lib/qemu/images/cd.iso (raw, read-only)',
+              '(qemu) _'
+            ];
+            setConsoleOutput(mockOutput);
+          }
+        } catch (error) {
+          console.error('Error fetching console output:', error);
+          const mockOutput = [
+            'QEMU 6.2.0 monitor - type \'help\' for more information',
+            '(qemu) info status',
+            'VM status: running',
+            '(qemu) _'
+          ];
+          setConsoleOutput(mockOutput);
+        }
+        
         setConsoleDialogOpen(true);
       }
       return;
     }
 
     try {
-      toast.promise(
-        new Promise((resolve) => setTimeout(resolve, 1000)),
-        {
-          loading: `${action.charAt(0).toUpperCase() + action.slice(1)}ing VM...`,
-          success: () => {
-            if (action === 'start') {
-              setVMs(vms.map(vm => 
-                vm.id === vmId ? { ...vm, status: 'running', uptime: 'Just started' } : vm
-              ));
-            } else if (action === 'stop') {
-              setVMs(vms.map(vm => 
-                vm.id === vmId ? { ...vm, status: 'stopped', uptime: undefined } : vm
-              ));
-            } else if (action === 'pause') {
+      if (action === 'start') {
+        await qemuService.startVM(vmId);
+        setVMs(vms.map(vm => 
+          vm.id === vmId ? { ...vm, status: 'running', uptime: 'Just started' } : vm
+        ));
+      } else if (action === 'stop') {
+        await qemuService.stopVM(vmId);
+        setVMs(vms.map(vm => 
+          vm.id === vmId ? { ...vm, status: 'stopped', uptime: undefined } : vm
+        ));
+      } else if (action === 'pause') {
+        // This would be handled by a pauseVM API call in real implementation
+        toast.promise(
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+          {
+            loading: 'Pausing VM...',
+            success: () => {
               setVMs(vms.map(vm => 
                 vm.id === vmId ? { ...vm, status: 'paused' } : vm
               ));
-            } else if (action === 'resume') {
+              return 'VM paused successfully';
+            },
+            error: 'Failed to pause VM',
+          }
+        );
+      } else if (action === 'resume') {
+        // This would be handled by a resumeVM API call in real implementation
+        toast.promise(
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+          {
+            loading: 'Resuming VM...',
+            success: () => {
               setVMs(vms.map(vm => 
                 vm.id === vmId ? { ...vm, status: 'running', uptime: vm.uptime || 'Just resumed' } : vm
               ));
-            } else if (action === 'restart') {
-              setVMs(vms.map(vm => 
-                vm.id === vmId ? { ...vm, status: 'running', uptime: 'Just restarted' } : vm
-              ));
-            } else if (action === 'snapshot') {
-              toast.info('Snapshot created successfully', {
-                description: 'VM snapshot has been saved'
-              });
-            }
-            return `VM ${action}ed successfully`;
-          },
-          error: `Failed to ${action} VM`,
-        }
-      );
+              return 'VM resumed successfully';
+            },
+            error: 'Failed to resume VM',
+          }
+        );
+      } else if (action === 'restart') {
+        await qemuService.restartVM(vmId);
+        setVMs(vms.map(vm => 
+          vm.id === vmId ? { ...vm, status: 'running', uptime: 'Just restarted' } : vm
+        ));
+      } else if (action === 'snapshot') {
+        const snapshotName = `snapshot-${Date.now()}`;
+        await qemuService.createSnapshot(vmId, snapshotName);
+        toast.info('Snapshot created successfully', {
+          description: 'VM snapshot has been saved'
+        });
+      }
     } catch (error) {
       console.error(`Error ${action}ing VM:`, error);
-      toast.error(`Failed to ${action} VM`);
     }
   };
 
@@ -233,54 +251,58 @@ const VMsPage = () => {
     setConfirmDialogOpen(false);
     
     try {
-      toast.promise(
-        new Promise((resolve) => setTimeout(resolve, 1000)),
-        {
-          loading: `${action.charAt(0).toUpperCase() + action.slice(1)}ing VM...`,
-          success: () => {
-            if (action === 'delete') {
-              setVMs(vms.filter(vm => vm.id !== vmId));
-            }
-            return `VM ${action}d successfully`;
-          },
-          error: `Failed to ${action} VM`,
-        }
-      );
+      if (action === 'delete') {
+        await qemuService.deleteVM(vmId, true);
+        setVMs(vms.filter(vm => vm.id !== vmId));
+      }
     } catch (error) {
       console.error(`Error ${action}ing VM:`, error);
-      toast.error(`Failed to ${action} VM`);
     }
   };
 
   const renderStatusBadge = (status: string) => {
     switch (status) {
       case 'running':
-        return <span className="status-badge status-running">Running</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Running</span>;
       case 'paused':
-        return <span className="status-badge status-paused">Paused</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Paused</span>;
       case 'stopped':
-        return <span className="status-badge status-stopped">Stopped</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Stopped</span>;
       default:
-        return <span className="status-badge status-stopped">{status}</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{status}</span>;
     }
   };
 
-  const handleCreateVM = (formData: any) => {
+  const handleCreateVM = async (formData: any) => {
     console.log('Creating VM with:', formData);
-
-    const newVM = {
-      id: `vm${vms.length + 1}`,
-      name: formData.name,
-      status: 'stopped',
-      cpu: `${formData.cpus} vCPU${formData.cpus > 1 ? 's' : ''}`,
-      memory: `${formData.memory} GB`,
-      storage: `${formData.diskSize} GB`,
-      os: formData.os || 'Custom OS'
-    };
-
-    setVMs([...vms, newVM]);
-    setCreateDialogOpen(false);
-    toast.success(`VM ${formData.name} created successfully`);
+    
+    try {
+      const response = await qemuService.createVM(formData);
+      console.log('VM created:', response.data);
+      
+      if (response.data && response.data.vm) {
+        // Add the new VM to the list
+        setVMs(prevVMs => [...prevVMs, response.data.vm]);
+      } else {
+        // Fallback if we don't get the VM data back
+        const newVM = {
+          id: `vm${Date.now()}`,
+          name: formData.name,
+          status: 'stopped',
+          cpus: formData.cpus,
+          memory: `${formData.memory} GB`,
+          storage: `${formData.diskSize} GB`,
+          os: formData.os || 'Custom OS'
+        };
+        setVMs(prevVMs => [...prevVMs, newVM]);
+      }
+      
+      setCreateDialogOpen(false);
+      fetchVMs(); // Refresh VM list
+    } catch (error) {
+      console.error('Error creating VM:', error);
+      toast.error('Failed to create VM');
+    }
   };
 
   return (
@@ -365,8 +387,8 @@ const VMsPage = () => {
                           </span>
                         )}
                       </td>
-                      <td className="p-3">{vm.os}</td>
-                      <td className="p-3">{vm.cpu} / {vm.memory}</td>
+                      <td className="p-3">{vm.os || 'Unknown'}</td>
+                      <td className="p-3">{vm.cpus || '1'} vCPU{vm.cpus && parseInt(String(vm.cpus)) !== 1 ? 's' : ''} / {vm.memory}</td>
                       <td className="p-3">{vm.storage}</td>
                       <td className="p-3 text-right space-x-1">
                         {vm.status === 'running' && (

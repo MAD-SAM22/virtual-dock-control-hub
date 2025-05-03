@@ -2,6 +2,29 @@
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
+export interface VMInfo {
+  id: string;
+  name: string;
+  status: string;
+  memory: string;
+  cpus: number | string;
+  storage: string;
+  os?: string;
+  diskName?: string;
+  diskFormat?: string;
+  iso?: string | null;
+  pid?: number;
+  networkType?: string;
+  startedAt?: string;
+  uptime?: string;
+}
+
+export interface ISOFile {
+  name: string;
+  size: string;
+  lastModified: string;
+}
+
 const mockVMs = [
   { id: 'v1', name: 'ubuntu-server', status: 'running', memory: '2GB', cpu: '2 cores', storage: '20GB' },
   { id: 'v2', name: 'windows-test', status: 'stopped', memory: '4GB', cpu: '4 cores', storage: '50GB' },
@@ -9,7 +32,7 @@ const mockVMs = [
 
 export const qemuService = {
   // Get all VMs
-  getVMs: async () => {
+  getVMs: async (): Promise<{ data: VMInfo[] }> => {
     try {
       console.log('Attempting to fetch VM data from API');
       const res = await apiClient.get('/qemu/vms');
@@ -21,17 +44,17 @@ export const qemuService = {
       } else {
         console.warn('Unexpected VM data format received, using mock data.');
         toast.info('Fetching Data: Using mock VM data');
-        return { data: mockVMs };
+        return { data: mockVMs as unknown as VMInfo[] };
       }
     } catch (err) {
       console.warn('Failed to fetch VMs, using mock data.', err);
       toast.info('Fetching Data: Using mock VM data');
-      return { data: mockVMs };
+      return { data: mockVMs as unknown as VMInfo[] };
     }
   },
 
   // Get VM details
-  getVM: async (id: string) => {
+  getVM: async (id: string): Promise<{ data: VMInfo }> => {
     try {
       console.log(`Fetching details for VM ${id}`);
       const res = await apiClient.get(`/qemu/vms/${id}`);
@@ -42,19 +65,65 @@ export const qemuService = {
       } else {
         console.warn(`Unexpected VM detail format for VM ${id}, using mock data.`);
         toast.info('Fetching Data: Using mock VM details');
-        return { data: mockVMs.find(vm => vm.id === id) || mockVMs[0] };
+        return { data: mockVMs.find(vm => vm.id === id) || mockVMs[0] } as { data: VMInfo };
       }
     } catch (err) {
       console.warn(`Failed to fetch VM details for ${id}, using mock data.`, err);
       toast.info('Fetching Data: Using mock VM details');
-      return { data: mockVMs.find(vm => vm.id === id) || mockVMs[0] };
+      return { data: mockVMs.find(vm => vm.id === id) || mockVMs[0] } as { data: VMInfo };
+    }
+  },
+
+  // List ISO files
+  getISOFiles: async (): Promise<ISOFile[]> => {
+    try {
+      const response = await apiClient.get('/qemu/list-isos');
+      return response.data;
+    } catch (err) {
+      console.error('Error fetching ISO files:', err);
+      toast.error('Failed to fetch ISO files');
+      return [];
+    }
+  },
+
+  // Upload ISO file
+  uploadISO: async (file: File): Promise<{ name: string, size: string }> => {
+    try {
+      const formData = new FormData();
+      formData.append('iso', file);
+      
+      const response = await apiClient.post('/qemu/upload-iso', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+      
+      toast.success(`ISO file ${file.name} uploaded successfully`);
+      return response.data.file;
+    } catch (err: any) {
+      console.error('Error uploading ISO file:', err);
+      toast.error(err.response?.data?.error || 'Failed to upload ISO file');
+      throw err;
+    }
+  },
+
+  // Delete ISO file
+  deleteISO: async (filename: string): Promise<{ message: string }> => {
+    try {
+      const response = await apiClient.delete(`/qemu/delete-iso/${filename}`);
+      toast.success(`ISO file ${filename} deleted successfully`);
+      return response.data;
+    } catch (err: any) {
+      console.error(`Error deleting ISO file ${filename}:`, err);
+      toast.error(err.response?.data?.error || `Failed to delete ISO file ${filename}`);
+      throw err;
     }
   },
 
   // Create VM
   createVM: async (data: any) => {
     try {
-      const response = await apiClient.post('/qemu/vms', data);
+      const response = await apiClient.post('/qemu/create-vm', data);
       toast.success('VM created successfully');
       return response;
     } catch (err) {

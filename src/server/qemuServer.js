@@ -1,3 +1,4 @@
+
 import express from 'express';
 import bodyParser from 'body-parser';
 import { exec, execSync, spawn } from 'child_process';
@@ -5,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
 
 const router = express.Router();
 
@@ -25,11 +27,92 @@ if (!fs.existsSync(VM_DIR)) fs.mkdirSync(VM_DIR, { recursive: true });
 if (!fs.existsSync(ISO_DIR)) fs.mkdirSync(ISO_DIR, { recursive: true });
 if (!fs.existsSync(DISK_DIR)) fs.mkdirSync(DISK_DIR, { recursive: true });
 
+// Configure multer for ISO uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, ISO_DIR);
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.originalname);
+    }
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: 5000 * 1024 * 1024 }, // 5GB limit
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/x-iso9660-image' || 
+            file.originalname.endsWith('.iso')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only ISO files are allowed'));
+        }
+    }
+});
+
 // Constants
 const RESIZE_SUPPORTED_FORMATS = ['qcow2', 'raw', 'vmdk'];
 const SUPPORTED_FORMATS = ['qcow2', 'vmdk', 'raw', 'vdi', 'vpc'];
 const DYNAMIC_ONLY_FORMATS = ['vdi', 'vpc'];
 const FIXED_UNSUPPORTED_ON_WINDOWS = ['qcow2'];
+
+// List ISO files
+router.get('/list-isos', (req, res) => {
+    try {
+        const files = fs.readdirSync(ISO_DIR).filter(file => file.endsWith('.iso'));
+        const isoFiles = files.map(file => {
+            const filePath = path.join(ISO_DIR, file);
+            const stats = fs.statSync(filePath);
+            return {
+                name: file,
+                size: (stats.size / (1024 * 1024)).toFixed(2) + ' MB',
+                lastModified: stats.mtime
+            };
+        });
+        res.json(isoFiles);
+    } catch (err) {
+        console.error('Error listing ISO files:', err);
+        res.status(500).json({ error: 'Failed to list ISO files' });
+    }
+});
+
+// Upload ISO file
+router.post('/upload-iso', upload.single('iso'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        res.json({ 
+            message: `ISO file ${req.file.originalname} uploaded successfully`,
+            file: {
+                name: req.file.originalname,
+                size: `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`
+            }
+        });
+    } catch (err) {
+        console.error('Error uploading ISO file:', err);
+        res.status(500).json({ error: 'Failed to upload ISO file' });
+    }
+});
+
+// Delete ISO file
+router.delete('/delete-iso/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const isoPath = path.join(ISO_DIR, filename);
+
+    if (!fs.existsSync(isoPath)) {
+        return res.status(404).json({ error: 'ISO file not found' });
+    }
+
+    try {
+        fs.unlinkSync(isoPath);
+        res.json({ message: `ISO file ${filename} deleted successfully` });
+    } catch (err) {
+        console.error(`Error deleting ISO file ${filename}:`, err);
+        res.status(500).json({ error: `Failed to delete ISO file: ${err.message}` });
+    }
+});
 
 // Create Disk
 router.post('/create-disk', (req, res) => {
@@ -96,68 +179,164 @@ router.post('/create-disk', (req, res) => {
 
 // CREATE VM
 router.post('/create-vm', (req, res) => {
-    const { name, cpu, memory, diskName, format, iso } = req.body;
+    const { name, cpus, memory, diskSize, diskFormat, os, iso, networkType, enableKVM, enableEFI, customArgs } = req.body;
 
-    if (!name || !cpu || !memory || !diskName || !format) {
+    if (!name || !cpus || !memory || !diskSize || !diskFormat) {
         return res.status(400).json({ error: 'Missing required parameters' });
     }
 
-    const diskPath = path.join(DISK_DIR, `${diskName}.${format}`);
-    if (!fs.existsSync(diskPath)) {
-        return res.status(404).json({ error: 'Disk not found' });
-    }
+    // Create disk for the VM
+    const diskName = `${name}-disk`;
+    const diskPath = path.join(DISK_DIR, `${diskName}.${diskFormat}`);
+    
+    try {
+        // Create the disk first
+        const diskCommand = `qemu-img create -f ${diskFormat} ${diskPath} ${diskSize}G`;
+        execSync(diskCommand);
+        
+        // Prepare VM arguments
+        const args = [
+            '-name', name,
+            '-smp', cpus.toString(),
+            '-m', `${memory}G`,
+            '-drive', `file=${diskPath},format=${diskFormat},if=virtio`
+        ];
 
-    const args = [
-        '-name', name,
-        '-smp', cpu,
-        '-m', memory,
-        '-hda', diskPath
-    ];
-
-    if (iso) {
-        const isoPath = path.join(ISO_DIR, iso);
-        if (!fs.existsSync(isoPath)) {
-            return res.status(404).json({ error: 'ISO not found' });
+        // Add ISO if specified
+        if (iso) {
+            const isoPath = path.join(ISO_DIR, iso);
+            if (fs.existsSync(isoPath)) {
+                args.push('-cdrom', isoPath);
+                args.push('-boot', 'order=d');
+            } else {
+                return res.status(404).json({ error: 'ISO file not found' });
+            }
         }
-        args.push('-cdrom', isoPath, '-boot', 'd');
+
+        // Add network configuration
+        if (networkType === 'user') {
+            args.push('-net', 'nic,model=virtio', '-net', 'user');
+        } else if (networkType === 'bridge') {
+            const bridge = req.body.networkBridge || 'br0';
+            args.push('-net', 'nic,model=virtio', '-net', `bridge,br=${bridge}`);
+        }
+
+        // Add KVM support if requested
+        if (enableKVM) {
+            args.push('-enable-kvm');
+        }
+
+        // Add EFI support if requested
+        if (enableEFI) {
+            args.push('-bios', '/usr/share/ovmf/OVMF.fd');
+        }
+
+        // Add custom arguments if provided
+        if (customArgs) {
+            args.push(...customArgs.split(' '));
+        }
+
+        // Start VM using spawn so we can get its PID
+        const qemuProcess = spawn('qemu-system-x86_64', args, {
+            detached: true,
+            stdio: 'ignore' // prevent it from blocking
+        });
+
+        // Detach from parent and let the process live
+        qemuProcess.unref();
+
+        const vmConfig = {
+            id: Date.now().toString(),
+            name,
+            cpus,
+            memory: `${memory} GB`,
+            storage: `${diskSize} GB`,
+            os: os || 'Custom OS',
+            status: 'running',
+            diskName,
+            diskFormat,
+            iso: iso || null,
+            pid: qemuProcess.pid,
+            networkType,
+            startedAt: new Date().toISOString()
+        };
+
+        const vmPath = path.join(VM_DIR, `${name}.json`);
+        fs.writeFileSync(vmPath, JSON.stringify(vmConfig, null, 2));
+
+        console.log(`✅ VM "${name}" started with PID ${qemuProcess.pid}`);
+        res.json({ 
+            message: `🖥️ VM "${name}" started successfully`,
+            vm: vmConfig
+        });
+    } catch (err) {
+        console.error(`Error creating VM: ${err.message}`);
+        res.status(500).json({ error: `Failed to create VM: ${err.message}` });
     }
-
-    // Start VM using spawn so we can get its PID
-    const qemu = spawn('qemu-system-x86_64', args, {
-        detached: true,
-        stdio: 'ignore' // prevent it from blocking
-    });
-
-    // Detach from parent and let the process live
-    qemu.unref();
-
-    const vmConfig = {
-        name,
-        cpu,
-        memory,
-        diskName,
-        format,
-        iso: iso || null,
-        pid: qemu.pid,
-        startedAt: new Date().toISOString()
-    };
-
-    const vmPath = path.join(VM_DIR, `${name}.json`);
-    fs.writeFileSync(vmPath, JSON.stringify(vmConfig, null, 2));
-
-    console.log(`✅ VM "${name}" started with PID ${qemu.pid}`);
-    res.json({ message: `🖥️ VM "${name}" started successfully`, pid: qemu.pid });
 });
 
 // LIST VMs
-router.get('/list-vms', (req, res) => {
-    const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
-    const vmList = files.map(file => {
-        const vmData = fs.readFileSync(path.join(VM_DIR, file));
-        return JSON.parse(vmData);
-    });
+router.get('/vms', (req, res) => {
+    try {
+        const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
+        const vmList = files.map(file => {
+            try {
+                const vmData = JSON.parse(fs.readFileSync(path.join(VM_DIR, file)));
+                
+                // Check if VM is still running (if it has a PID)
+                if (vmData.pid) {
+                    try {
+                        // This will throw if process doesn't exist
+                        process.kill(vmData.pid, 0);
+                        vmData.status = 'running';
+                    } catch (e) {
+                        // Process doesn't exist
+                        vmData.status = 'stopped';
+                    }
+                }
+                
+                return vmData;
+            } catch (err) {
+                console.error(`Error parsing VM file ${file}:`, err);
+                return null;
+            }
+        }).filter(vm => vm !== null);
 
-    res.json(vmList);
+        res.json(vmList);
+    } catch (err) {
+        console.error('Error listing VMs:', err);
+        res.status(500).json({ error: 'Failed to list VMs' });
+    }
+});
+
+// GET VM DETAILS
+router.get('/vms/:id', (req, res) => {
+    try {
+        const vmId = req.params.id;
+        const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
+        
+        for (const file of files) {
+            const vmData = JSON.parse(fs.readFileSync(path.join(VM_DIR, file)));
+            if (vmData.id === vmId) {
+                // Check VM status
+                if (vmData.pid) {
+                    try {
+                        process.kill(vmData.pid, 0);
+                        vmData.status = 'running';
+                    } catch (e) {
+                        vmData.status = 'stopped';
+                    }
+                }
+                
+                return res.json(vmData);
+            }
+        }
+        
+        res.status(404).json({ error: 'VM not found' });
+    } catch (err) {
+        console.error(`Error getting VM details:`, err);
+        res.status(500).json({ error: 'Failed to get VM details' });
+    }
 });
 
 // LIST DISKS
@@ -206,34 +385,61 @@ router.get('/list-disks', (req, res) => {
 });
 
 // DELETE VM
-router.delete('/delete-vm/:name', (req, res) => {
-    const name = req.params.name;
-    const vmPath = path.join(VM_DIR, `${name}.json`);
-
-    if (!fs.existsSync(vmPath)) {
-        return res.status(404).json({ error: 'VM not found' });
-    }
-
-    const { pid } = JSON.parse(fs.readFileSync(vmPath));
-
-    let killed = false;
+router.delete('/vms/:id', (req, res) => {
+    const vmId = req.params.id;
+    
     try {
-        // Check if process exists (this throws if it doesn't)
-        process.kill(pid, 0);
-        process.kill(pid); // Kill it for real
-        killed = true;
-    } catch (e) {
-        if (e.code !== 'ESRCH') {
-            return res.status(500).json({ error: `Failed to stop VM: ${e.message}` });
+        let vmFilePath = null;
+        let vmData = null;
+        
+        // Find the VM file by ID
+        const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
+        for (const file of files) {
+            const data = JSON.parse(fs.readFileSync(path.join(VM_DIR, file)));
+            if (data.id === vmId) {
+                vmFilePath = path.join(VM_DIR, file);
+                vmData = data;
+                break;
+            }
         }
-        console.warn(`⚠️ VM process PID ${pid} already not running.`);
+        
+        if (!vmFilePath || !vmData) {
+            return res.status(404).json({ error: 'VM not found' });
+        }
+
+        // Try to kill the process if it's running
+        let killed = false;
+        if (vmData.pid) {
+            try {
+                // Check if process exists (this throws if it doesn't)
+                process.kill(vmData.pid, 0);
+                process.kill(vmData.pid); // Kill it for real
+                killed = true;
+            } catch (e) {
+                console.warn(`⚠️ VM process PID ${vmData.pid} already not running.`);
+            }
+        }
+        
+        // Delete the VM config file
+        fs.unlinkSync(vmFilePath);
+        
+        // Delete VM disk if requested
+        const removeDisks = req.query.removeDisks === 'true';
+        if (removeDisks && vmData.diskName && vmData.diskFormat) {
+            const diskPath = path.join(DISK_DIR, `${vmData.diskName}.${vmData.diskFormat}`);
+            if (fs.existsSync(diskPath)) {
+                fs.unlinkSync(diskPath);
+            }
+        }
+
+        res.json({
+            message: `VM "${vmData.name}" deleted${killed ? '' : ' (process was already stopped)'}.`,
+            removedDisk: removeDisks
+        });
+    } catch (err) {
+        console.error(`Error deleting VM:`, err);
+        res.status(500).json({ error: `Failed to delete VM: ${err.message}` });
     }
-
-    fs.unlinkSync(vmPath); // remove metadata file
-
-    res.json({
-        message: `🗑️ VM "${name}" deleted${killed ? '' : ' (process was already stopped)'}.`
-    });
 });
 
 // DELETE DISK
