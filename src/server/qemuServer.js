@@ -1,4 +1,3 @@
-
 import express from 'express';
 import bodyParser from 'body-parser';
 import { exec, execSync, spawn } from 'child_process';
@@ -277,11 +276,26 @@ router.post('/create-vm', (req, res) => {
 
 // LIST VMs
 router.get('/vms', (req, res) => {
+    console.log('GET /vms - Reading VMs from directory:', VM_DIR);
+    
     try {
+        // Check if directory exists first
+        if (!fs.existsSync(VM_DIR)) {
+            console.log('VM directory does not exist, creating it');
+            fs.mkdirSync(VM_DIR, { recursive: true });
+            return res.json([]);
+        }
+        
         const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
+        console.log('Found VM files:', files);
+        
         const vmList = files.map(file => {
             try {
-                const vmData = JSON.parse(fs.readFileSync(path.join(VM_DIR, file)));
+                const vmPath = path.join(VM_DIR, file);
+                console.log(`Reading VM file: ${vmPath}`);
+                
+                const fileContent = fs.readFileSync(vmPath, 'utf8');
+                const vmData = JSON.parse(fileContent);
                 
                 // Check if VM is still running (if it has a PID)
                 if (vmData.pid) {
@@ -289,9 +303,32 @@ router.get('/vms', (req, res) => {
                         // This will throw if process doesn't exist
                         process.kill(vmData.pid, 0);
                         vmData.status = 'running';
+                        
+                        // Calculate uptime if VM is running
+                        if (vmData.startedAt) {
+                            const startTime = new Date(vmData.startedAt).getTime();
+                            const currentTime = new Date().getTime();
+                            const uptimeMs = currentTime - startTime;
+                            
+                            // Format uptime
+                            const seconds = Math.floor(uptimeMs / 1000) % 60;
+                            const minutes = Math.floor(uptimeMs / (1000 * 60)) % 60;
+                            const hours = Math.floor(uptimeMs / (1000 * 60 * 60)) % 24;
+                            const days = Math.floor(uptimeMs / (1000 * 60 * 60 * 24));
+                            
+                            if (days > 0) {
+                                vmData.uptime = `${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`;
+                            } else if (hours > 0) {
+                                vmData.uptime = `${hours} hour${hours !== 1 ? 's' : ''}, ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+                            } else {
+                                vmData.uptime = `${minutes} minute${minutes !== 1 ? 's' : ''}, ${seconds} second${seconds !== 1 ? 's' : ''}`;
+                            }
+                        }
                     } catch (e) {
                         // Process doesn't exist
+                        console.log(`VM ${vmData.name} process not found, marking as stopped`);
                         vmData.status = 'stopped';
+                        vmData.uptime = undefined;
                     }
                 }
                 
@@ -302,40 +339,73 @@ router.get('/vms', (req, res) => {
             }
         }).filter(vm => vm !== null);
 
+        console.log(`Successfully loaded ${vmList.length} VMs`);
         res.json(vmList);
     } catch (err) {
         console.error('Error listing VMs:', err);
-        res.status(500).json({ error: 'Failed to list VMs' });
+        res.status(500).json({ error: 'Failed to list VMs: ' + err.message });
     }
 });
 
 // GET VM DETAILS
 router.get('/vms/:id', (req, res) => {
+    const vmId = req.params.id;
+    console.log(`GET /vms/${vmId} - Getting VM details`);
+    
     try {
-        const vmId = req.params.id;
+        if (!fs.existsSync(VM_DIR)) {
+            return res.status(404).json({ error: 'VM directory not found' });
+        }
+        
         const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
         
         for (const file of files) {
-            const vmData = JSON.parse(fs.readFileSync(path.join(VM_DIR, file)));
+            const vmPath = path.join(VM_DIR, file);
+            const vmData = JSON.parse(fs.readFileSync(vmPath, 'utf8'));
+            
             if (vmData.id === vmId) {
                 // Check VM status
                 if (vmData.pid) {
                     try {
                         process.kill(vmData.pid, 0);
                         vmData.status = 'running';
+                        
+                        // Calculate uptime
+                        if (vmData.startedAt) {
+                            const startTime = new Date(vmData.startedAt).getTime();
+                            const currentTime = new Date().getTime();
+                            const uptimeMs = currentTime - startTime;
+                            
+                            // Format uptime
+                            const seconds = Math.floor(uptimeMs / 1000) % 60;
+                            const minutes = Math.floor(uptimeMs / (1000 * 60)) % 60;
+                            const hours = Math.floor(uptimeMs / (1000 * 60 * 60)) % 24;
+                            const days = Math.floor(uptimeMs / (1000 * 60 * 60 * 24));
+                            
+                            if (days > 0) {
+                                vmData.uptime = `${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`;
+                            } else if (hours > 0) {
+                                vmData.uptime = `${hours} hour${hours !== 1 ? 's' : ''}, ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+                            } else {
+                                vmData.uptime = `${minutes} minute${minutes !== 1 ? 's' : ''}, ${seconds} second${seconds !== 1 ? 's' : ''}`;
+                            }
+                        }
                     } catch (e) {
                         vmData.status = 'stopped';
+                        vmData.uptime = undefined;
                     }
                 }
                 
+                console.log(`Found VM ${vmId}:`, vmData);
                 return res.json(vmData);
             }
         }
         
+        console.log(`VM ${vmId} not found`);
         res.status(404).json({ error: 'VM not found' });
     } catch (err) {
-        console.error(`Error getting VM details:`, err);
-        res.status(500).json({ error: 'Failed to get VM details' });
+        console.error(`Error getting VM details for ${vmId}:`, err);
+        res.status(500).json({ error: `Failed to get VM details: ${err.message}` });
     }
 });
 
