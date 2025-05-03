@@ -472,9 +472,9 @@ router.get('/list-disks', (req, res) => {
             // Infer type
             let type = 'dynamic';
             if (format === 'qcow2') {
-                type = preallocMatch ?.[1] === 'full' ? 'fixed' : 'dynamic';
+                type = preallocMatch ? .[1] === 'full' ? 'fixed' : 'dynamic';
             } else if (format === 'vmdk') {
-                type = subformatMatch ?.[1] === 'monolithicFlat' ? 'fixed' : 'dynamic';
+                type = subformatMatch ? .[1] === 'monolithicFlat' ? 'fixed' : 'dynamic';
             } else if (format === 'raw') {
                 type = 'fixed';
             }
