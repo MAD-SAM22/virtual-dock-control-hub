@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -68,12 +69,6 @@ export const qemuService = {
   // Upload ISO file
   uploadISO: async (file: File): Promise<{ name: string, size: string }> => {
     try {
-      // Validate file size (100MB limit as an example, adjust as needed)
-      const maxSize = 100 * 1024 * 1024; // 100MB
-      if (file.size > maxSize) {
-        throw new Error(`File is too large. Maximum size is ${maxSize / (1024 * 1024)}MB.`);
-      }
-      
       // Validate file type
       if (!file.name.toLowerCase().endsWith('.iso')) {
         throw new Error('Only .iso files are allowed.');
@@ -87,7 +82,7 @@ export const qemuService = {
           'Content-Type': 'multipart/form-data',
         },
         // Add timeout for large files
-        timeout: 300000, // 5 minutes
+        timeout: 600000, // 10 minutes for large files
       });
       
       toast.success(`ISO file ${file.name} uploaded successfully`);

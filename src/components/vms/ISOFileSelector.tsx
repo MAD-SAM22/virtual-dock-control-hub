@@ -78,7 +78,7 @@ const ISOFileSelector = ({
       onUseCustomPathChange(false);
     } catch (error: any) {
       console.error('Error uploading file:', error);
-      const errorMessage = error.response?.data?.error || 'Failed to upload ISO file. Check file type and size.';
+      const errorMessage = error.response?.data?.error || 'Failed to upload ISO file. Check file type.';
       setUploadError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -186,7 +186,7 @@ const ISOFileSelector = ({
             )}
             
             <p className="text-xs text-muted-foreground">
-              Upload an ISO image file to use for VM installation
+              Upload an ISO image file to use for VM installation (must have .iso extension)
             </p>
           </div>
         </TabsContent>

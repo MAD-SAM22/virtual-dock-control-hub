@@ -46,16 +46,11 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
     useCustomISOPath: false,
     networkType: 'bridge',
     networkBridge: 'br0',
-    bootOrder: ['cdrom', 'disk', 'network'],
     enableKVM: true,
-    enableNestedVirt: false,
     enableEFI: false,
     diskFormat: 'qcow2',
     diskBus: 'virtio',
     networkModel: 'virtio-net',
-    displayType: 'vnc',
-    vncPort: '',
-    keyboardLayout: 'en-us',
     customArgs: '',
   });
 
@@ -112,30 +107,6 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
       ...formData,
       [name]: checked,
     });
-  };
-
-  // Boot order management
-  const moveBootOption = (index: number, direction: 'up' | 'down') => {
-    const newBootOrder = [...formData.bootOrder];
-    if (direction === 'up' && index > 0) {
-      [newBootOrder[index], newBootOrder[index - 1]] = [newBootOrder[index - 1], newBootOrder[index]];
-    } else if (direction === 'down' && index < newBootOrder.length - 1) {
-      [newBootOrder[index], newBootOrder[index + 1]] = [newBootOrder[index + 1], newBootOrder[index]];
-    }
-    
-    setFormData({
-      ...formData,
-      bootOrder: newBootOrder,
-    });
-  };
-
-  const renderBootDeviceName = (device: string) => {
-    switch (device) {
-      case 'cdrom': return 'CD/DVD';
-      case 'disk': return 'Hard Disk';
-      case 'network': return 'Network';
-      default: return device;
-    }
   };
 
   const FeatureTooltip = ({ children, content }: { children: React.ReactNode, content: string }) => (
@@ -328,112 +299,9 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
               </SelectContent>
             </Select>
           </div>
-          
-          <div className="space-y-2">
-            <FeatureTooltip content="Boot order is currently fixed to ISO→Disk→Network in the backend">
-              <Label className="opacity-60">Boot Order (Backend Default)</Label>
-            </FeatureTooltip>
-            <div className="space-y-2 border rounded-md p-2 opacity-60">
-              {formData.bootOrder.map((device, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm">
-                    {index + 1}. {renderBootDeviceName(device)}
-                  </span>
-                  <div className="space-x-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={true}
-                    >
-                      ↑
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={true}
-                    >
-                      ↓
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Boot order customization not yet supported in current backend
-            </p>
-          </div>
         </TabsContent>
         
         <TabsContent value="advanced" className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <FeatureTooltip content="Display settings not yet fully supported in current backend">
-              <Label htmlFor="displayType" className="opacity-60">Display Type</Label>
-            </FeatureTooltip>
-            <Select
-              value={formData.displayType}
-              onValueChange={(value) => handleSelectChange('displayType', value)}
-              disabled
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select display type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="vnc">VNC</SelectItem>
-                <SelectItem value="spice">SPICE</SelectItem>
-                <SelectItem value="none">None (Headless)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              VNC display not configurable in current backend
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <FeatureTooltip content="VNC port configuration not yet supported in current backend">
-              <Label htmlFor="vncPort" className="opacity-60">VNC Port (optional)</Label>
-            </FeatureTooltip>
-            <Input
-              id="vncPort"
-              name="vncPort"
-              placeholder="5900"
-              value={formData.vncPort}
-              onChange={handleChange}
-              disabled
-            />
-            <p className="text-xs text-muted-foreground">
-              Backend handles VNC port assignment automatically
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <FeatureTooltip content="Keyboard layout selection not yet supported in current backend">
-              <Label htmlFor="keyboardLayout" className="opacity-60">Keyboard Layout</Label>
-            </FeatureTooltip>
-            <Select
-              value={formData.keyboardLayout}
-              onValueChange={(value) => handleSelectChange('keyboardLayout', value)}
-              disabled
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select keyboard layout" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en-us">English (US)</SelectItem>
-                <SelectItem value="en-gb">English (UK)</SelectItem>
-                <SelectItem value="de">German</SelectItem>
-                <SelectItem value="fr">French</SelectItem>
-                <SelectItem value="es">Spanish</SelectItem>
-                <SelectItem value="it">Italian</SelectItem>
-                <SelectItem value="ja">Japanese</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Keyboard layout selection not yet available in current backend
-            </p>
-          </div>
-          
           <div className="space-y-1">
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -445,23 +313,6 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
             </div>
             <p className="text-xs text-muted-foreground ml-6">
               Improves performance, recommended for most use cases
-            </p>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="enableNestedVirt"
-                checked={formData.enableNestedVirt}
-                onCheckedChange={(checked) => handleCheckboxChange('enableNestedVirt', !!checked)}
-                disabled
-              />
-              <FeatureTooltip content="Nested virtualization not yet supported in current backend">
-                <Label htmlFor="enableNestedVirt" className="opacity-60">Enable nested virtualization</Label>
-              </FeatureTooltip>
-            </div>
-            <p className="text-xs text-muted-foreground ml-6">
-              Not yet supported in current backend
             </p>
           </div>
           
