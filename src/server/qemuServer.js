@@ -1,21 +1,24 @@
-const bodyParser = require('body-parser');
-const { exec, execSync } = require('child_process');
 import express from 'express';
+import bodyParser from 'body-parser';
+import { exec, execSync, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-const { spawn } = require('child_process');
-const os = require('os');
+import os from 'os';
+import { fileURLToPath } from 'url';
 
 const router = express.Router();
 
 router.use(bodyParser.json());
 
 // Define directories
+// Get current file path (using ES module approach)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Define directories (in the same directory as this file)
 const DISK_DIR = path.resolve(__dirname, 'disks');
 const ISO_DIR = path.resolve(__dirname, 'iso');
 const VM_DIR = path.resolve(__dirname, 'vms');
-
 
 // Create directories if they don't exist
 if (!fs.existsSync(VM_DIR)) fs.mkdirSync(VM_DIR, { recursive: true });
@@ -316,4 +319,4 @@ router.put('/update-disk/:filename', (req, res) => {
     res.json({ message: `✅ Disk "${oldFilename}" successfully renamed to "${newFilename}".` });
 });
 
-module.exports = router;
+export default router;

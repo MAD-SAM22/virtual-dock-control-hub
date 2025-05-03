@@ -1,7 +1,7 @@
 
-const express = require('express');
-const cors = require('cors');
-const qemuRouter = require('./qemuServer');
+import express from 'express';
+import cors from 'cors';
+import qemuRouter from './qemuServer.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,10 +34,10 @@ app.get('/images', (req, res) => {
 });
 
 // Start the server if this file is run directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
   });
 }
 
-module.exports = app;
+export default app;
