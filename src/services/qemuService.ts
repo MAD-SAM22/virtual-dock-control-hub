@@ -1,4 +1,3 @@
-
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -81,8 +80,14 @@ export const qemuService = {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        // Add timeout for large files
-        timeout: 600000, // 10 minutes for large files
+        // Increase timeout for large files
+        timeout: 3600000, // 1 hour for very large files
+        // Add progress tracking for large files
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || file.size));
+          console.log(`Upload progress: ${percentCompleted}%`);
+          // You could add a toast or other UI feedback here
+        },
       });
       
       toast.success(`ISO file ${file.name} uploaded successfully`);
@@ -94,6 +99,10 @@ export const qemuService = {
         toast.error('File is too large to upload. Please check server limits.');
       } else if (err.code === 'ECONNABORTED') {
         toast.error('Upload timed out. The file may be too large or the network is slow.');
+      } else if (err.response?.status === 400) {
+        toast.error(err.response?.data?.error || 'Invalid file format. Only .iso files are allowed.');
+      } else if (err.response?.status === 500) {
+        toast.error('Server error while processing the upload. Check if the server has sufficient disk space.');
       } else {
         toast.error(err.response?.data?.error || err.message || 'Failed to upload ISO file');
       }

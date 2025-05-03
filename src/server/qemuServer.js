@@ -9,7 +9,9 @@ import multer from 'multer';
 
 const router = express.Router();
 
-router.use(bodyParser.json());
+// Increase the JSON body size limit for base64-encoded files
+router.use(bodyParser.json({ limit: '5000mb' }));
+router.use(bodyParser.urlencoded({ extended: true, limit: '5000mb' }));
 
 // Define directories
 // Get current file path (using ES module approach)
@@ -44,7 +46,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 5000 * 1024 * 1024 }, // 5GB limit
+    // Remove size limit to allow for large ISOs
+    // limits: { fileSize: 5000 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         if (file.mimetype === 'application/x-iso9660-image' ||
             file.originalname.endsWith('.iso')) {
@@ -97,6 +100,37 @@ router.post('/upload-iso', upload.single('iso'), (req, res) => {
         });
     } catch (err) {
         console.error('Error uploading ISO file:', err);
+        res.status(500).json({ error: 'Failed to upload ISO file' });
+    }
+});
+
+// Upload ISO file - Additional endpoint that accepts base64 content
+router.post('/upload-iso-base64', (req, res) => {
+    try {
+        const { name, content } = req.body;
+        
+        if (!name || !content) {
+            return res.status(400).json({ error: 'Name and content are required' });
+        }
+        
+        if (!name.toLowerCase().endsWith('.iso')) {
+            return res.status(400).json({ error: 'Only ISO files are allowed' });
+        }
+        
+        const buffer = Buffer.from(content, 'base64');
+        const filePath = path.join(ISO_DIR, name);
+        
+        fs.writeFileSync(filePath, buffer);
+        
+        res.json({
+            message: `ISO file ${name} uploaded successfully`,
+            file: {
+                name,
+                size: `${(buffer.length / (1024 * 1024)).toFixed(2)} MB`
+            }
+        });
+    } catch (err) {
+        console.error('Error uploading ISO file via base64:', err);
         res.status(500).json({ error: 'Failed to upload ISO file' });
     }
 });
@@ -640,84 +674,124 @@ router.post('/vms/:id/pause', (req, res) => {
 
 // RESTART VM (stop + start)
 router.post('/vms/:id/restart', (req, res) => {
-            const vm = getVMData(req.params.id);
-            if (!vm) return res.status(404).json({ error: 'VM not found' });
+    const vm = getVMData(req.params.id);
+    if (!vm) return res.status(404).json({ error: 'VM not found' });
 
-            try {
-                process.kill(vm.data.pid);
-                const args = [
-                        '-name', vm.data.name,
-                        '-smp', vm.data.cpus.toString(),
-                        '-m', vm.data.memory,
-                        '-drive', `file=${path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`)},format=${vm.data.diskFormat},if=virtio`
-      ];
-      if (vm.data.iso) {
-        const isoPath = path.join(__dirname, 'iso', vm.data.iso);
-        args.push('-cdrom', isoPath, '-boot', 'order=d');
-      }
-      const proc = spawn('qemu-system-x86_64', args, { detached: true, stdio: 'ignore' });
-      proc.unref();
-      vm.data.pid = proc.pid;
-      vm.data.status = 'running';
-      fs.writeFileSync(vm.path, JSON.stringify(vm.data, null, 2));
-      res.json({ message: `🔁 VM "${vm.data.name}" restarted.` });
+    try {
+        process.kill(vm.data.pid);
+        const args = [
+            '-name', vm.data.name,
+            '-smp', vm.data.cpus.toString(),
+            '-m', vm.data.memory,
+            '-drive', `file=${path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`)},format=${vm.data.diskFormat},if=virtio`
+        ];
+        if (vm.data.iso) {
+            const isoPath = path.join(__dirname, 'iso', vm.data.iso);
+            args.push('-cdrom', isoPath, '-boot', 'order=d');
+        }
+        const proc = spawn('qemu-system-x86_64', args, { detached: true, stdio: 'ignore' });
+        proc.unref();
+        vm.data.pid = proc.pid;
+        vm.data.status = 'running';
+        fs.writeFileSync(vm.path, JSON.stringify(vm.data, null, 2));
+        res.json({ message: `🔁 VM "${vm.data.name}" restarted.` });
     } catch (e) {
-      res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message });
     }
-  });
-  
-  // CONSOLE (simulated)
-  router.get('/vms/:id/console', (req, res) => {
+});
+
+// CONSOLE (simulated)
+router.get('/vms/:id/console', (req, res) => {
     // Simulated endpoint (actual VNC/SPICE integration needed)
     res.json({ message: '🔧 Console access feature not implemented yet. Use VNC or SPICE frontend.' });
-  });
-  
-  // CREATE SNAPSHOT
-  router.post('/vms/:id/snapshot', (req, res) => {
+});
+
+// CREATE SNAPSHOT
+router.post('/vms/:id/snapshot', (req, res) => {
     const vm = getVMData(req.params.id);
     if (!vm) return res.status(404).json({ error: 'VM not found' });
-  
+
     const diskPath = path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`);
     const snapshotPath = path.join(SNAPSHOT_DIR, `${vm.data.diskName}-${Date.now()}.qcow2`);
-  
+
     try {
-      execSync(`qemu-img create -f qcow2 -b "${diskPath}" "${snapshotPath}"`);
-      res.json({ message: `📸 Snapshot created: ${snapshotPath}` });
+        execSync(`qemu-img create -f qcow2 -b "${diskPath}" "${snapshotPath}"`);
+        res.json({ message: `📸 Snapshot created: ${snapshotPath}` });
     } catch (e) {
-      res.status(500).json({ error: `Failed to create snapshot: ${e.message}` });
+        res.status(500).json({ error: `Failed to create snapshot: ${e.message}` });
     }
-  });
-  
-  // EDIT VM config
-  router.put('/vms/:id', (req, res) => {
+});
+
+// EDIT VM config
+router.put('/vms/:id', (req, res) => {
     const vm = getVMData(req.params.id);
     if (!vm) return res.status(404).json({ error: 'VM not found' });
-  
+
     const updates = req.body;
     Object.assign(vm.data, updates);
     fs.writeFileSync(vm.path, JSON.stringify(vm.data, null, 2));
     res.json({ message: `✏️ VM "${vm.data.name}" updated.`, vm: vm.data });
-  });
-  
-  // MIGRATE (simulation)
-  router.post('/vms/:id/migrate', (req, res) => {
+});
+
+// MIGRATE (simulation)
+router.post('/vms/:id/migrate', (req, res) => {
     res.json({ message: '🚀 VM migration is not yet implemented. Requires cluster setup.' });
-  });
-  
-  // DELETE VM
-  router.delete('/vms/:id', (req, res) => {
+});
+
+// DELETE VM
+router.delete('/vms/:id', (req, res) => {
     const vm = getVMData(req.params.id);
     if (!vm) return res.status(404).json({ error: 'VM not found' });
-  
+
     try {
-      try { process.kill(vm.data.pid); } catch {}
-      fs.unlinkSync(vm.path);
-      const diskFile = path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`);
-      if (fs.existsSync(diskFile)) fs.unlinkSync(diskFile);
-      res.json({ message: `🗑️ VM "${vm.data.name}" deleted.` });
+        try { process.kill(vm.data.pid); } catch {}
+        fs.unlinkSync(vm.path);
+        const diskFile = path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`);
+        if (fs.existsSync(diskFile)) fs.unlinkSync(diskFile);
+        res.json({ message: `🗑️ VM "${vm.data.name}" deleted.` });
     } catch (e) {
-      res.status(500).json({ error: `Failed to delete VM: ${e.message}` });
+        res.status(500).json({ error: `Failed to delete VM: ${e.message}` });
     }
-  });
-  
+});
+
+// Add a new health check endpoint
+router.get('/status', (req, res) => {
+    try {
+        // Check if directories exist
+        const dirs = [VM_DIR, DISK_DIR, ISO_DIR, SNAPSHOT_DIR];
+        const dirStatus = dirs.map(dir => ({
+            path: dir,
+            exists: fs.existsSync(dir)
+        }));
+        
+        // Check if QEMU is installed
+        let qemuInstalled = false;
+        let qemuVersion = null;
+        
+        try {
+            qemuVersion = execSync('qemu-img --version').toString().trim();
+            qemuInstalled = true;
+        } catch (err) {
+            console.error('QEMU not found:', err);
+        }
+        
+        res.json({
+            status: 'operational',
+            server: {
+                platform: os.platform(),
+                arch: os.arch(),
+                nodeVersion: process.version
+            },
+            qemu: {
+                installed: qemuInstalled,
+                version: qemuVersion
+            },
+            directories: dirStatus
+        });
+    } catch (err) {
+        console.error('Error checking server status:', err);
+        res.status(500).json({ error: 'Failed to check server status' });
+    }
+});
+
 export default router;
