@@ -5,7 +5,6 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
-import multer from 'multer';
 
 const router = express.Router();
 
@@ -34,27 +33,9 @@ if (!fs.existsSync(VM_DIR)) fs.mkdirSync(VM_DIR, { recursive: true });
 if (!fs.existsSync(ISO_DIR)) fs.mkdirSync(ISO_DIR, { recursive: true });
 if (!fs.existsSync(DISK_DIR)) fs.mkdirSync(DISK_DIR, { recursive: true });
 
-// Configure multer for ISO uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, ISO_DIR);
-    },
-    filename: (req, file, cb) => {
-        cb(null, file.originalname);
-    }
-});
 
-const upload = multer({
-    storage,
-    limits: { fileSize: 10 * 1024 * 1024 * 1024 }, // 10 GB
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/x-iso9660-image' || file.originalname.endsWith('.iso')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only ISO files are allowed'));
-        }
-    }
-});
+
+
 
 
 // Constants
@@ -65,6 +46,9 @@ const FIXED_UNSUPPORTED_ON_WINDOWS = ['qcow2'];
 
 // List ISO files
 router.get('/list-isos', (req, res) => {
+    console.log('E:\\MSA material\\sana 4\\cloud\\lovableai\\virtual-dock-control-hub\\src\\server\\iso', ISO_DIR);
+
+
     try {
         const files = fs.readdirSync(ISO_DIR).filter(file => file.endsWith('.iso'));
         const isoFiles = files.map(file => {
@@ -85,21 +69,15 @@ router.get('/list-isos', (req, res) => {
 
 
 // Upload ISO route
-router.post('/upload-iso', upload.single('iso'), (req, res) => {
+router.post('/upload-iso', (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No ISO file uploaded.' });
+        if (!req.body || !req.body.name || !req.body.content) {
+            return res.status(400).json({ error: 'Missing ISO name or content.' });
         }
-
-        res.json({
-            message: `✅ ISO "${req.file.originalname}" uploaded successfully.`,
-            file: {
-                name: req.file.originalname,
-                size: `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`
-            }
-        });
-    } catch (err) {
-        console.error('❌ Error uploading ISO file:', err.message);
+        const isoPath = path.join(ISO_DIR, req.body.name);
+        fs.writeFileSync(isoPath, Buffer.from(req.body.content, 'base64'));
+        res.json({ message: `ISO ${req.body.name} uploaded.` });
+    } catch (e) {
         res.status(500).json({ error: 'Failed to upload ISO file.' });
     }
 });
@@ -472,9 +450,9 @@ router.get('/list-disks', (req, res) => {
             // Infer type
             let type = 'dynamic';
             if (format === 'qcow2') {
-                type = preallocMatch ? .[1] === 'full' ? 'fixed' : 'dynamic';
+                type = preallocMatch ?.[1] === 'full' ? 'fixed' : 'dynamic';
             } else if (format === 'vmdk') {
-                type = subformatMatch ? .[1] === 'monolithicFlat' ? 'fixed' : 'dynamic';
+                type = subformatMatch ?.[1] === 'monolithicFlat' ? 'fixed' : 'dynamic';
             } else if (format === 'raw') {
                 type = 'fixed';
             }
