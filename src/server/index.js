@@ -1,6 +1,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import bodyParser from 'body-parser';
 import qemuRouter from './qemuServer.js';
 
 const app = express();
@@ -8,34 +9,21 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-
-// Routes
-app.use('/qemu', qemuRouter);
+app.use(bodyParser.json({ limit: '5000mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '5000mb' }));
 
 // Health check endpoint
 app.get('/_ping', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date() });
+  res.json({ status: 'ok', message: 'Server is running' });
 });
 
-// Mock endpoints for Docker (can be replaced with real implementation later)
-app.get('/containers', (req, res) => {
-    res.json([
-        { id: '123', name: 'container1', status: 'running' },
-        { id: '456', name: 'container2', status: 'stopped' }
-    ]);
-});
+// Mount the QEMU router
+app.use('/qemu', qemuRouter);
 
-app.get('/images', (req, res) => {
-    res.json([
-        { id: '789', name: 'ubuntu:latest', size: '120MB' },
-        { id: '012', name: 'nginx:latest', size: '80MB' }
-    ]);
-});
-
-// Start the server if this file is run directly
+// Start the server
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`QEMU API available at http://localhost:${PORT}/qemu`);
 });
 
 export default app;
