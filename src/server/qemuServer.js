@@ -25,14 +25,13 @@ const ISO_DIR = path.resolve(__dirname, 'iso');
 const VM_DIR = path.resolve(__dirname, 'vms');
 const SNAPSHOT_DIR = path.join(__dirname, 'snapshots');
 
-[VM_DIR, DISK_DIR, SNAPSHOT_DIR].forEach(dir => {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+// Make sure all directories exist
+[ISO_DIR, VM_DIR, DISK_DIR, SNAPSHOT_DIR].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        console.log(`Creating directory: ${dir}`);
+        fs.mkdirSync(dir, { recursive: true });
+    }
 });
-
-// Create directories if they don't exist
-if (!fs.existsSync(VM_DIR)) fs.mkdirSync(VM_DIR, { recursive: true });
-if (!fs.existsSync(ISO_DIR)) fs.mkdirSync(ISO_DIR, { recursive: true });
-if (!fs.existsSync(DISK_DIR)) fs.mkdirSync(DISK_DIR, { recursive: true });
 
 // Configure multer for ISO uploads
 const storage = multer.diskStorage({
@@ -49,8 +48,10 @@ const upload = multer({
     // Remove size limit to allow for large ISOs
     // limits: { fileSize: 5000 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/x-iso9660-image' ||
-            file.originalname.endsWith('.iso')) {
+        console.log('Uploaded file:', file);
+        // Accept both .iso files and files with ISO mime type
+        if (file.mimetype === 'application/x-iso9660-image' || 
+            file.originalname.toLowerCase().endsWith('.iso')) {
             cb(null, true);
         } else {
             cb(new Error('Only ISO files are allowed'));
@@ -84,9 +85,10 @@ router.get('/list-isos', (req, res) => {
     }
 });
 
-// Upload ISO file
+// Upload ISO file - this handles standard multipart/form-data uploads
 router.post('/upload-iso', upload.single('iso'), (req, res) => {
     try {
+        console.log('Upload request received', req.file);
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
         }
@@ -100,7 +102,7 @@ router.post('/upload-iso', upload.single('iso'), (req, res) => {
         });
     } catch (err) {
         console.error('Error uploading ISO file:', err);
-        res.status(500).json({ error: 'Failed to upload ISO file' });
+        res.status(500).json({ error: 'Failed to upload ISO file: ' + err.message });
     }
 });
 

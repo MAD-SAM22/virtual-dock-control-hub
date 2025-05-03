@@ -17,6 +17,12 @@ app.get('/_ping', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
+// Debug middleware to log requests
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Mount the QEMU router
 app.use('/qemu', qemuRouter);
 

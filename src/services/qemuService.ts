@@ -56,7 +56,9 @@ export const qemuService = {
   // List ISO files
   getISOFiles: async (): Promise<ISOFile[]> => {
     try {
+      console.log('Fetching ISO files from API');
       const response = await apiClient.get('/qemu/list-isos');
+      console.log('ISO files response:', response.data);
       return response.data;
     } catch (err) {
       console.error('Error fetching ISO files:', err);
@@ -68,14 +70,18 @@ export const qemuService = {
   // Upload ISO file
   uploadISO: async (file: File): Promise<{ name: string, size: string }> => {
     try {
+      console.log(`Uploading ISO file: ${file.name} (${file.size} bytes)`);
+      
       // Validate file type
       if (!file.name.toLowerCase().endsWith('.iso')) {
+        toast.error('Only .iso files are allowed');
         throw new Error('Only .iso files are allowed.');
       }
       
       const formData = new FormData();
       formData.append('iso', file);
       
+      console.log('Sending form data to /qemu/upload-iso');
       const response = await apiClient.post('/qemu/upload-iso', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -90,6 +96,7 @@ export const qemuService = {
         },
       });
       
+      console.log('Upload successful:', response.data);
       toast.success(`ISO file ${file.name} uploaded successfully`);
       return response.data.file;
     } catch (err: any) {
@@ -103,6 +110,8 @@ export const qemuService = {
         toast.error(err.response?.data?.error || 'Invalid file format. Only .iso files are allowed.');
       } else if (err.response?.status === 500) {
         toast.error('Server error while processing the upload. Check if the server has sufficient disk space.');
+      } else if (err.response?.status === 404) {
+        toast.error('Upload endpoint not found. Please check server configuration.');
       } else {
         toast.error(err.response?.data?.error || err.message || 'Failed to upload ISO file');
       }
