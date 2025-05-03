@@ -13,13 +13,19 @@ router.use(bodyParser.json());
 
 // Define directories
 // Get current file path (using ES module approach)
-const __filename = fileURLToPath(import.meta.url);
+const __filename = fileURLToPath(
+    import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Define directories (in the same directory as this file)
 const DISK_DIR = path.resolve(__dirname, 'disks');
 const ISO_DIR = path.resolve(__dirname, 'iso');
 const VM_DIR = path.resolve(__dirname, 'vms');
+const SNAPSHOT_DIR = path.join(__dirname, 'snapshots');
+
+[VM_DIR, DISK_DIR, SNAPSHOT_DIR].forEach(dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
 
 // Create directories if they don't exist
 if (!fs.existsSync(VM_DIR)) fs.mkdirSync(VM_DIR, { recursive: true });
@@ -40,7 +46,7 @@ const upload = multer({
     storage,
     limits: { fileSize: 5000 * 1024 * 1024 }, // 5GB limit
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/x-iso9660-image' || 
+        if (file.mimetype === 'application/x-iso9660-image' ||
             file.originalname.endsWith('.iso')) {
             cb(null, true);
         } else {
@@ -82,7 +88,7 @@ router.post('/upload-iso', upload.single('iso'), (req, res) => {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        res.json({ 
+        res.json({
             message: `ISO file ${req.file.originalname} uploaded successfully`,
             file: {
                 name: req.file.originalname,
@@ -187,12 +193,12 @@ router.post('/create-vm', (req, res) => {
     // Create disk for the VM
     const diskName = `${name}-disk`;
     const diskPath = path.join(DISK_DIR, `${diskName}.${diskFormat}`);
-    
+
     try {
         // Create the disk first
         const diskCommand = `qemu-img create -f ${diskFormat} ${diskPath} ${diskSize}G`;
         execSync(diskCommand);
-        
+
         // Prepare VM arguments
         const args = [
             '-name', name,
@@ -264,7 +270,7 @@ router.post('/create-vm', (req, res) => {
         fs.writeFileSync(vmPath, JSON.stringify(vmConfig, null, 2));
 
         console.log(`✅ VM "${name}" started with PID ${qemuProcess.pid}`);
-        res.json({ 
+        res.json({
             message: `🖥️ VM "${name}" started successfully`,
             vm: vmConfig
         });
@@ -277,7 +283,7 @@ router.post('/create-vm', (req, res) => {
 // LIST VMs
 router.get('/vms', (req, res) => {
     console.log('GET /vms - Reading VMs from directory:', VM_DIR);
-    
+
     try {
         // Check if directory exists first
         if (!fs.existsSync(VM_DIR)) {
@@ -285,37 +291,37 @@ router.get('/vms', (req, res) => {
             fs.mkdirSync(VM_DIR, { recursive: true });
             return res.json([]);
         }
-        
+
         const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
         console.log('Found VM files:', files);
-        
+
         const vmList = files.map(file => {
             try {
                 const vmPath = path.join(VM_DIR, file);
                 console.log(`Reading VM file: ${vmPath}`);
-                
+
                 const fileContent = fs.readFileSync(vmPath, 'utf8');
                 const vmData = JSON.parse(fileContent);
-                
+
                 // Check if VM is still running (if it has a PID)
                 if (vmData.pid) {
                     try {
                         // This will throw if process doesn't exist
                         process.kill(vmData.pid, 0);
                         vmData.status = 'running';
-                        
+
                         // Calculate uptime if VM is running
                         if (vmData.startedAt) {
                             const startTime = new Date(vmData.startedAt).getTime();
                             const currentTime = new Date().getTime();
                             const uptimeMs = currentTime - startTime;
-                            
+
                             // Format uptime
                             const seconds = Math.floor(uptimeMs / 1000) % 60;
                             const minutes = Math.floor(uptimeMs / (1000 * 60)) % 60;
                             const hours = Math.floor(uptimeMs / (1000 * 60 * 60)) % 24;
                             const days = Math.floor(uptimeMs / (1000 * 60 * 60 * 24));
-                            
+
                             if (days > 0) {
                                 vmData.uptime = `${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`;
                             } else if (hours > 0) {
@@ -331,7 +337,7 @@ router.get('/vms', (req, res) => {
                         vmData.uptime = undefined;
                     }
                 }
-                
+
                 return vmData;
             } catch (err) {
                 console.error(`Error parsing VM file ${file}:`, err);
@@ -351,37 +357,37 @@ router.get('/vms', (req, res) => {
 router.get('/vms/:id', (req, res) => {
     const vmId = req.params.id;
     console.log(`GET /vms/${vmId} - Getting VM details`);
-    
+
     try {
         if (!fs.existsSync(VM_DIR)) {
             return res.status(404).json({ error: 'VM directory not found' });
         }
-        
+
         const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
-        
+
         for (const file of files) {
             const vmPath = path.join(VM_DIR, file);
             const vmData = JSON.parse(fs.readFileSync(vmPath, 'utf8'));
-            
+
             if (vmData.id === vmId) {
                 // Check VM status
                 if (vmData.pid) {
                     try {
                         process.kill(vmData.pid, 0);
                         vmData.status = 'running';
-                        
+
                         // Calculate uptime
                         if (vmData.startedAt) {
                             const startTime = new Date(vmData.startedAt).getTime();
                             const currentTime = new Date().getTime();
                             const uptimeMs = currentTime - startTime;
-                            
+
                             // Format uptime
                             const seconds = Math.floor(uptimeMs / 1000) % 60;
                             const minutes = Math.floor(uptimeMs / (1000 * 60)) % 60;
                             const hours = Math.floor(uptimeMs / (1000 * 60 * 60)) % 24;
                             const days = Math.floor(uptimeMs / (1000 * 60 * 60 * 24));
-                            
+
                             if (days > 0) {
                                 vmData.uptime = `${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`;
                             } else if (hours > 0) {
@@ -395,12 +401,12 @@ router.get('/vms/:id', (req, res) => {
                         vmData.uptime = undefined;
                     }
                 }
-                
+
                 console.log(`Found VM ${vmId}:`, vmData);
                 return res.json(vmData);
             }
         }
-        
+
         console.log(`VM ${vmId} not found`);
         res.status(404).json({ error: 'VM not found' });
     } catch (err) {
@@ -457,11 +463,11 @@ router.get('/list-disks', (req, res) => {
 // DELETE VM
 router.delete('/vms/:id', (req, res) => {
     const vmId = req.params.id;
-    
+
     try {
         let vmFilePath = null;
         let vmData = null;
-        
+
         // Find the VM file by ID
         const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
         for (const file of files) {
@@ -472,7 +478,7 @@ router.delete('/vms/:id', (req, res) => {
                 break;
             }
         }
-        
+
         if (!vmFilePath || !vmData) {
             return res.status(404).json({ error: 'VM not found' });
         }
@@ -489,10 +495,10 @@ router.delete('/vms/:id', (req, res) => {
                 console.warn(`⚠️ VM process PID ${vmData.pid} already not running.`);
             }
         }
-        
+
         // Delete the VM config file
         fs.unlinkSync(vmFilePath);
-        
+
         // Delete VM disk if requested
         const removeDisks = req.query.removeDisks === 'true';
         if (removeDisks && vmData.diskName && vmData.diskFormat) {
@@ -595,4 +601,123 @@ router.put('/update-disk/:filename', (req, res) => {
     res.json({ message: `✅ Disk "${oldFilename}" successfully renamed to "${newFilename}".` });
 });
 
+const getVMData = (vmId) => {
+    const files = fs.readdirSync(VM_DIR).filter(f => f.endsWith('.json'));
+    for (const file of files) {
+        const fullPath = path.join(VM_DIR, file);
+        const data = JSON.parse(fs.readFileSync(fullPath));
+        if (data.id === vmId) return { path: fullPath, data };
+    }
+    return null;
+};
+
+router.post('/vms/:id/stop', (req, res) => {
+    const vm = getVMData(req.params.id);
+    if (!vm) return res.status(404).json({ error: 'VM not found' });
+    try {
+        process.kill(vm.data.pid);
+        vm.data.status = 'stopped';
+        fs.writeFileSync(vm.path, JSON.stringify(vm.data, null, 2));
+        res.json({ message: `🛑 VM "${vm.data.name}" stopped.` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// PAUSE VM
+router.post('/vms/:id/pause', (req, res) => {
+    const vm = getVMData(req.params.id);
+    if (!vm) return res.status(404).json({ error: 'VM not found' });
+    try {
+        process.kill(vm.data.pid, 'SIGSTOP');
+        vm.data.status = 'paused';
+        fs.writeFileSync(vm.path, JSON.stringify(vm.data, null, 2));
+        res.json({ message: `⏸️ VM "${vm.data.name}" paused.` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// RESTART VM (stop + start)
+router.post('/vms/:id/restart', (req, res) => {
+            const vm = getVMData(req.params.id);
+            if (!vm) return res.status(404).json({ error: 'VM not found' });
+
+            try {
+                process.kill(vm.data.pid);
+                const args = [
+                        '-name', vm.data.name,
+                        '-smp', vm.data.cpus.toString(),
+                        '-m', vm.data.memory,
+                        '-drive', `file=${path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`)},format=${vm.data.diskFormat},if=virtio`
+      ];
+      if (vm.data.iso) {
+        const isoPath = path.join(__dirname, 'iso', vm.data.iso);
+        args.push('-cdrom', isoPath, '-boot', 'order=d');
+      }
+      const proc = spawn('qemu-system-x86_64', args, { detached: true, stdio: 'ignore' });
+      proc.unref();
+      vm.data.pid = proc.pid;
+      vm.data.status = 'running';
+      fs.writeFileSync(vm.path, JSON.stringify(vm.data, null, 2));
+      res.json({ message: `🔁 VM "${vm.data.name}" restarted.` });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  
+  // CONSOLE (simulated)
+  router.get('/vms/:id/console', (req, res) => {
+    // Simulated endpoint (actual VNC/SPICE integration needed)
+    res.json({ message: '🔧 Console access feature not implemented yet. Use VNC or SPICE frontend.' });
+  });
+  
+  // CREATE SNAPSHOT
+  router.post('/vms/:id/snapshot', (req, res) => {
+    const vm = getVMData(req.params.id);
+    if (!vm) return res.status(404).json({ error: 'VM not found' });
+  
+    const diskPath = path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`);
+    const snapshotPath = path.join(SNAPSHOT_DIR, `${vm.data.diskName}-${Date.now()}.qcow2`);
+  
+    try {
+      execSync(`qemu-img create -f qcow2 -b "${diskPath}" "${snapshotPath}"`);
+      res.json({ message: `📸 Snapshot created: ${snapshotPath}` });
+    } catch (e) {
+      res.status(500).json({ error: `Failed to create snapshot: ${e.message}` });
+    }
+  });
+  
+  // EDIT VM config
+  router.put('/vms/:id', (req, res) => {
+    const vm = getVMData(req.params.id);
+    if (!vm) return res.status(404).json({ error: 'VM not found' });
+  
+    const updates = req.body;
+    Object.assign(vm.data, updates);
+    fs.writeFileSync(vm.path, JSON.stringify(vm.data, null, 2));
+    res.json({ message: `✏️ VM "${vm.data.name}" updated.`, vm: vm.data });
+  });
+  
+  // MIGRATE (simulation)
+  router.post('/vms/:id/migrate', (req, res) => {
+    res.json({ message: '🚀 VM migration is not yet implemented. Requires cluster setup.' });
+  });
+  
+  // DELETE VM
+  router.delete('/vms/:id', (req, res) => {
+    const vm = getVMData(req.params.id);
+    if (!vm) return res.status(404).json({ error: 'VM not found' });
+  
+    try {
+      try { process.kill(vm.data.pid); } catch {}
+      fs.unlinkSync(vm.path);
+      const diskFile = path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`);
+      if (fs.existsSync(diskFile)) fs.unlinkSync(diskFile);
+      res.json({ message: `🗑️ VM "${vm.data.name}" deleted.` });
+    } catch (e) {
+      res.status(500).json({ error: `Failed to delete VM: ${e.message}` });
+    }
+  });
+  
 export default router;

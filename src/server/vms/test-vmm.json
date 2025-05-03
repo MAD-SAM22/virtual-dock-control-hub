@@ -1,0 +1,10 @@
+{
+  "name": "test-vmm",
+  "cpu": "2",
+  "memory": "2048",
+  "diskName": "test-vm",
+  "format": "vpc",
+  "iso": "alpine-virt-3.21.3-x86_64.iso",
+  "pid": 6764,
+  "startedAt": "2025-05-03T16:35:17.303Z"
+}
