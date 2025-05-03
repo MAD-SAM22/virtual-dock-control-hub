@@ -20,8 +20,10 @@ const VMListLoader = ({ onVMsLoaded, children }: VMListLoaderProps) => {
         const response = await qemuService.getVMs();
         
         if (response.data && Array.isArray(response.data)) {
+          console.log('VMs loaded successfully:', response.data);
           onVMsLoaded(response.data);
         } else {
+          console.error('Invalid VM data format:', response.data);
           setError('Invalid response format from server');
           toast.error('Failed to load VM data: Invalid format');
         }
