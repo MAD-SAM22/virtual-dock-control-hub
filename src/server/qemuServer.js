@@ -10,8 +10,8 @@ import multer from 'multer';
 const router = express.Router();
 
 // Increase the JSON body size limit for base64-encoded files
-router.use(bodyParser.json({ limit: '5000mb' }));
-router.use(bodyParser.urlencoded({ extended: true, limit: '5000mb' }));
+router.use(bodyParser.json({ limit: '500000mb' }));
+router.use(bodyParser.urlencoded({ extended: true, limit: '500000mb' }));
 
 // Define directories
 // Get current file path (using ES module approach)
@@ -46,17 +46,16 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    // Remove size limit to allow for large ISOs
-    // limits: { fileSize: 5000 * 1024 * 1024 },
+    limits: { fileSize: 10 * 1024 * 1024 * 1024 }, // 10 GB
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/x-iso9660-image' ||
-            file.originalname.endsWith('.iso')) {
+        if (file.mimetype === 'application/x-iso9660-image' || file.originalname.endsWith('.iso')) {
             cb(null, true);
         } else {
             cb(new Error('Only ISO files are allowed'));
         }
     }
 });
+
 
 // Constants
 const RESIZE_SUPPORTED_FORMATS = ['qcow2', 'raw', 'vmdk'];
@@ -84,44 +83,46 @@ router.get('/list-isos', (req, res) => {
     }
 });
 
-// Upload ISO file
+
+// Upload ISO route
 router.post('/upload-iso', upload.single('iso'), (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
+            return res.status(400).json({ error: 'No ISO file uploaded.' });
         }
 
         res.json({
-            message: `ISO file ${req.file.originalname} uploaded successfully`,
+            message: `✅ ISO "${req.file.originalname}" uploaded successfully.`,
             file: {
                 name: req.file.originalname,
                 size: `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`
             }
         });
     } catch (err) {
-        console.error('Error uploading ISO file:', err);
-        res.status(500).json({ error: 'Failed to upload ISO file' });
+        console.error('❌ Error uploading ISO file:', err.message);
+        res.status(500).json({ error: 'Failed to upload ISO file.' });
     }
 });
+
 
 // Upload ISO file - Additional endpoint that accepts base64 content
 router.post('/upload-iso-base64', (req, res) => {
     try {
         const { name, content } = req.body;
-        
+
         if (!name || !content) {
             return res.status(400).json({ error: 'Name and content are required' });
         }
-        
+
         if (!name.toLowerCase().endsWith('.iso')) {
             return res.status(400).json({ error: 'Only ISO files are allowed' });
         }
-        
+
         const buffer = Buffer.from(content, 'base64');
         const filePath = path.join(ISO_DIR, name);
-        
+
         fs.writeFileSync(filePath, buffer);
-        
+
         res.json({
             message: `ISO file ${name} uploaded successfully`,
             file: {
@@ -674,16 +675,16 @@ router.post('/vms/:id/pause', (req, res) => {
 
 // RESTART VM (stop + start)
 router.post('/vms/:id/restart', (req, res) => {
-    const vm = getVMData(req.params.id);
-    if (!vm) return res.status(404).json({ error: 'VM not found' });
+            const vm = getVMData(req.params.id);
+            if (!vm) return res.status(404).json({ error: 'VM not found' });
 
-    try {
-        process.kill(vm.data.pid);
-        const args = [
-            '-name', vm.data.name,
-            '-smp', vm.data.cpus.toString(),
-            '-m', vm.data.memory,
-            '-drive', `file=${path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`)},format=${vm.data.diskFormat},if=virtio`
+            try {
+                process.kill(vm.data.pid);
+                const args = [
+                        '-name', vm.data.name,
+                        '-smp', vm.data.cpus.toString(),
+                        '-m', vm.data.memory,
+                        '-drive', `file=${path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`)},format=${vm.data.diskFormat},if=virtio`
         ];
         if (vm.data.iso) {
             const isoPath = path.join(__dirname, 'iso', vm.data.iso);
