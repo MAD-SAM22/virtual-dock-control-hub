@@ -18,7 +18,7 @@ export interface CreateDiskParams {
 }
 
 // Mock data for fallback
-const mockDisks = [
+const mockDisks: DiskInfo[] = [
   { name: 'ubuntu-disk', size: '20', format: 'qcow2', type: 'dynamic' },
   { name: 'windows-disk', size: '50', format: 'raw', type: 'fixed' },
 ];

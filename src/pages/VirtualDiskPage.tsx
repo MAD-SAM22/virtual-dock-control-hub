@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -42,15 +41,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { virtualDiskService, DiskInfo } from "@/services/virtualDiskService";
+import { virtualDiskService, DiskInfo, CreateDiskParams } from "@/services/virtualDiskService";
 
 // Define the schema for creating a virtual disk
 const formSchema = z.object({
   name: z.string().min(1, "Disk name is required"),
   size: z.string().min(1, "Size is required"),
   format: z.string().min(1, "Format is required"),
-  type: z.string().optional(),
+  type: z.enum(["dynamic", "fixed"]).optional(),
 });
+
+// Define form values type based on the schema
+type FormValues = z.infer<typeof formSchema>;
 
 const VirtualDiskPage = () => {
   const [disks, setDisks] = useState<DiskInfo[]>([]);
@@ -59,7 +61,7 @@ const VirtualDiskPage = () => {
   const [showTypeField, setShowTypeField] = useState(true);
   
   // Initialize form
-  const form = useForm({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -100,10 +102,18 @@ const VirtualDiskPage = () => {
   };
 
   // Handle form submission
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: FormValues) => {
     setIsCreating(true);
     try {
-      await virtualDiskService.createDisk(values);
+      // Ensure values match CreateDiskParams type
+      const diskParams: CreateDiskParams = {
+        name: values.name,
+        size: values.size,
+        format: values.format,
+        type: values.type as 'dynamic' | 'fixed'
+      };
+      
+      await virtualDiskService.createDisk(diskParams);
       // Reset the form
       form.reset({
         name: "",
