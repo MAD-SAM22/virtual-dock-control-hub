@@ -209,12 +209,12 @@ router.post('/create-vm', (req, res) => {
 
     try {
         // Create the disk first
-	const parsedDiskSize = parseInt(diskSize);
-	if (isNaN(parsedDiskSize) || parsedDiskSize <= 0) {
-  	return res.status(400).json({ error: 'Invalid disk size value' });
-	}
+        const parsedDiskSize = parseInt(diskSize);
+        if (isNaN(parsedDiskSize) || parsedDiskSize <= 0) {
+            return res.status(400).json({ error: 'Invalid disk size value' });
+        }
 
-	execSync(`qemu-img create -f ${diskFormat} "${diskFullPath}" ${parsedDiskSize}G`);
+        execSync(`qemu-img create -f ${diskFormat} "${diskPath}" ${parsedDiskSize}G`);
 
         execSync(diskCommand);
 
