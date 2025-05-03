@@ -196,29 +196,62 @@ router.post('/create-disk', (req, res) => {
 });
 
 // CREATE VM
-router.post('/create-vm', (req, res) => {
-    const { name, cpus, memory, diskSize, diskFormat, os, iso, networkType, enableKVM, enableEFI, customArgs } = req.body;
+// ✅ Modified create-vm to accept either diskName or diskSize+diskFormat
 
-    if (!name || !cpus || !memory || !diskSize || !diskFormat) {
+// CREATE VM
+router.post('/create-vm', (req, res) => {
+    const {
+        name,
+        cpus,
+        memory,
+        diskName,
+        os,
+        iso,
+        networkType,
+        networkBridge,
+        enableKVM,
+        enableEFI,
+        customArgs
+    } = req.body;
+
+    if (!name || !cpus || !memory || !diskName) {
         return res.status(400).json({ error: 'Missing required parameters' });
     }
 
-    // Create disk for the VM
-    const diskName = `${name}-disk`;
-    const diskPath = path.join(DISK_DIR, `${diskName}.${diskFormat}`);
-
     try {
-        // Create the disk first
-        const parsedDiskSize = parseInt(diskSize);
-        if (isNaN(parsedDiskSize) || parsedDiskSize <= 0) {
-            return res.status(400).json({ error: 'Invalid disk size value' });
+        // Attempt to resolve disk file with known extensions if not provided
+        const possibleExtensions = ['qcow2', 'img', 'raw', 'vmdk'];
+        let diskPath = null;
+        let diskFormat = null;
+
+        for (const ext of possibleExtensions) {
+            const fullPath = path.join(DISK_DIR, diskName.endsWith(`.${ext}`) ? diskName : `${diskName}.${ext}`);
+            if (fs.existsSync(fullPath)) {
+                diskPath = fullPath;
+                diskFormat = ext;
+                break;
+            }
         }
 
-        execSync(`qemu-img create -f ${diskFormat} "${diskPath}" ${parsedDiskSize}G`);
+        if (!diskPath) {
+            return res.status(404).json({ error: `Disk file "${diskName}" not found with supported extensions` });
+        }
 
-        execSync(diskCommand);
+        // Extract disk size using qemu-img
+        let diskSize = 0;
+        try {
+            const output = execSync(`qemu-img info "${diskPath}"`).toString();
+            const sizeMatch = output.match(/virtual size:.*\((\d+) bytes\)/);
+            diskSize = sizeMatch ? Math.round(parseInt(sizeMatch[1]) / (1024 * 1024 * 1024)) : 0;
+        } catch (err) {
+            return res.status(500).json({ error: `Failed to read disk info: ${err.message}` });
+        }
 
-        // Prepare VM arguments
+        if (diskSize <= 0) {
+            return res.status(400).json({ error: 'Invalid disk size' });
+        }
+
+        // Build QEMU arguments
         const args = [
             '-name', name,
             '-smp', cpus.toString(),
@@ -226,49 +259,40 @@ router.post('/create-vm', (req, res) => {
             '-drive', `file=${diskPath},format=${diskFormat},if=virtio`
         ];
 
-        // Add ISO if specified
+        // Add ISO
         if (iso) {
             const isoPath = path.join(ISO_DIR, iso);
-            if (fs.existsSync(isoPath)) {
-                args.push('-cdrom', isoPath);
-                args.push('-boot', 'order=d');
-            } else {
-                return res.status(404).json({ error: 'ISO file not found' });
+            if (!fs.existsSync(isoPath)) {
+                return res.status(404).json({ error: `ISO file "${iso}" not found` });
             }
+            args.push('-cdrom', isoPath, '-boot', 'order=d');
         }
 
-        // Add network configuration
+        // Add network
         if (networkType === 'user') {
             args.push('-net', 'nic,model=virtio', '-net', 'user');
         } else if (networkType === 'bridge') {
-            const bridge = req.body.networkBridge || 'br0';
+            const bridge = networkBridge || 'br0';
             args.push('-net', 'nic,model=virtio', '-net', `bridge,br=${bridge}`);
         }
 
-        // Add KVM support if requested
-        if (enableKVM) {
-            args.push('-enable-kvm');
+        // Enable KVM/EFI if requested
+        if (enableKVM) args.push('-enable-kvm');
+        if (enableEFI) args.push('-bios', '/usr/share/ovmf/OVMF.fd');
+
+        // Add custom QEMU arguments
+        if (customArgs && customArgs.trim()) {
+            args.push(...customArgs.trim().split(/\s+/));
         }
 
-        // Add EFI support if requested
-        if (enableEFI) {
-            args.push('-bios', '/usr/share/ovmf/OVMF.fd');
-        }
-
-        // Add custom arguments if provided
-        if (customArgs) {
-            args.push(...customArgs.split(' '));
-        }
-
-        // Start VM using spawn so we can get its PID
+        // Launch the VM
         const qemuProcess = spawn('qemu-system-x86_64', args, {
             detached: true,
-            stdio: 'ignore' // prevent it from blocking
+            stdio: 'ignore'
         });
-
-        // Detach from parent and let the process live
         qemuProcess.unref();
 
+        // Save VM metadata
         const vmConfig = {
             id: Date.now().toString(),
             name,
@@ -277,7 +301,7 @@ router.post('/create-vm', (req, res) => {
             storage: `${diskSize} GB`,
             os: os || 'Custom OS',
             status: 'running',
-            diskName,
+            diskName: path.basename(diskPath),
             diskFormat,
             iso: iso || null,
             pid: qemuProcess.pid,
@@ -285,20 +309,31 @@ router.post('/create-vm', (req, res) => {
             startedAt: new Date().toISOString()
         };
 
-        const vmPath = path.join(VM_DIR, `${name}.json`);
-        fs.writeFileSync(vmPath, JSON.stringify(vmConfig, null, 2));
+        const vmFilePath = path.join(VM_DIR, `${name}.json`);
+        fs.writeFileSync(vmFilePath, JSON.stringify(vmConfig, null, 2));
 
         console.log(`✅ VM "${name}" started with PID ${qemuProcess.pid}`);
         res.json({
             message: `🖥️ VM "${name}" started successfully`,
             vm: vmConfig
         });
+
     } catch (err) {
-        console.error(`Error creating VM: ${err.message}`);
+        console.error(`❌ Error creating VM: ${err.message}`);
         res.status(500).json({ error: `Failed to create VM: ${err.message}` });
     }
 });
 
+
+router.get('/list-vms', (req, res) => {
+    const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
+    const vmList = files.map(file => {
+        const vmData = fs.readFileSync(path.join(VM_DIR, file));
+        return JSON.parse(vmData);
+    });
+
+    res.json(vmList);
+});
 // LIST VMs
 router.get('/vms', (req, res) => {
     console.log('GET /vms - Reading VMs from directory:', VM_DIR);
