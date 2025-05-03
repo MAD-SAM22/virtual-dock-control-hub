@@ -7,9 +7,10 @@ import { Loader } from 'lucide-react';
 interface VMListLoaderProps {
   onVMsLoaded: (vms: VMInfo[]) => void;
   children: React.ReactNode;
+  refetchTrigger?: number; // Add refetch trigger prop
 }
 
-const VMListLoader = ({ onVMsLoaded, children }: VMListLoaderProps) => {
+const VMListLoader = ({ onVMsLoaded, children, refetchTrigger = 0 }: VMListLoaderProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,18 +18,19 @@ const VMListLoader = ({ onVMsLoaded, children }: VMListLoaderProps) => {
     const loadVMs = async () => {
       try {
         setLoading(true);
+        console.log('VMListLoader: Loading VMs...');
         const response = await qemuService.getVMs();
         
         if (response.data && Array.isArray(response.data)) {
-          console.log('VMs loaded successfully:', response.data);
+          console.log('VMListLoader: VMs loaded successfully:', response.data);
           onVMsLoaded(response.data);
         } else {
-          console.error('Invalid VM data format:', response.data);
+          console.error('VMListLoader: Invalid VM data format:', response.data);
           setError('Invalid response format from server');
           toast.error('Failed to load VM data: Invalid format');
         }
       } catch (err) {
-        console.error('Error loading VMs:', err);
+        console.error('VMListLoader: Error loading VMs:', err);
         setError('Failed to load VMs');
         toast.error('Failed to load VM data');
       } finally {
@@ -37,7 +39,7 @@ const VMListLoader = ({ onVMsLoaded, children }: VMListLoaderProps) => {
     };
 
     loadVMs();
-  }, [onVMsLoaded]);
+  }, [onVMsLoaded, refetchTrigger]); // Added refetchTrigger dependency
 
   if (loading) {
     return (

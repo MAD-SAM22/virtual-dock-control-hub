@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,27 +59,20 @@ const VMsPage = () => {
   const [selectedVM, setSelectedVM] = useState<VMInfo | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [refetchTrigger, setRefetchTrigger] = useState(0); // Add refetch trigger state
 
   const handleVMsLoaded = (loadedVMs: VMInfo[]) => {
     console.log('VMs loaded in page component:', loadedVMs);
     setVMs(loadedVMs);
     setFilteredVMs(loadedVMs);
+    setIsLoading(false);
   };
 
-  const fetchVMs = async () => {
+  // Modify this to use refetch trigger instead of direct API call
+  const triggerRefresh = () => {
+    console.log('Triggering VM list refresh');
     setIsLoading(true);
-    try {
-      const response = await qemuService.getVMs();
-      if (response.data && Array.isArray(response.data)) {
-        setVMs(response.data);
-        setFilteredVMs(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching VMs:', error);
-      toast.error('Failed to refresh VM list');
-    } finally {
-      setIsLoading(false);
-    }
+    setRefetchTrigger(prev => prev + 1);
   };
 
   // Filter VMs based on search term
@@ -153,8 +145,8 @@ const VMsPage = () => {
         toast.info('VM migration functionality coming soon');
       }
       
-      // Refresh VM list after action
-      await fetchVMs();
+      // Trigger VM list refresh after action
+      triggerRefresh();
     } catch (error) {
       console.error(`Error ${action}ing VM:`, error);
       toast.error(`Failed to ${action} VM`);
@@ -169,7 +161,7 @@ const VMsPage = () => {
       if (action === 'delete') {
         await qemuService.deleteVM(vmId, true);
         toast.success(`VM deleted successfully`);
-        await fetchVMs();
+        triggerRefresh(); // Use the trigger refresh instead of fetchVMs
       }
     } catch (error) {
       console.error(`Error ${action}ing VM:`, error);
@@ -199,7 +191,7 @@ const VMsPage = () => {
       
       setCreateDialogOpen(false);
       toast.success('VM created successfully');
-      await fetchVMs(); // Refresh VM list
+      triggerRefresh(); // Use the trigger refresh instead of fetchVMs
     } catch (error) {
       console.error('Error creating VM:', error);
       toast.error('Failed to create VM');
@@ -222,7 +214,7 @@ const VMsPage = () => {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={fetchVMs}
+            onClick={triggerRefresh}
             disabled={isLoading}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -253,7 +245,7 @@ const VMsPage = () => {
           <CardDescription>Manage your QEMU VMs</CardDescription>
         </CardHeader>
         <CardContent>
-          <VMListLoader onVMsLoaded={handleVMsLoaded}>
+          <VMListLoader onVMsLoaded={handleVMsLoaded} refetchTrigger={refetchTrigger}>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
