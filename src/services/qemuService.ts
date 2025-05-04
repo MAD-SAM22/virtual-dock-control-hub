@@ -157,12 +157,30 @@ export const qemuService = {
     }
   },
 
+  // Update VM
+  updateVM: async (id: string, data: any) => {
+    try {
+      console.log(`Updating VM ${id} with data:`, data);
+      const response = await apiClient.put(`/qemu/vms/${id}`, data);
+      toast.success(`VM ${data.name} updated successfully`);
+      return response;
+    } catch (err: any) {
+      console.error(`Error updating VM ${id}:`, err);
+      const errorMessage = err.response?.data?.error || 'Failed to update VM';
+      toast.error(errorMessage);
+      throw err;
+    }
+  },
+
   // Start VM
   startVM: async (id: string) => {
     try {
-      return await apiClient.post(`/qemu/vms/${id}/start`);
+      const response = await apiClient.post(`/qemu/vms/${id}/start`);
+      console.log(`VM ${id} start response:`, response);
+      return response;
     } catch (err) {
       console.error(`Error starting VM ${id}:`, err);
+      toast.error(`Failed to start VM: ${err.message || 'Unknown error'}`);
       throw err;
     }
   },
@@ -170,9 +188,12 @@ export const qemuService = {
   // Stop VM
   stopVM: async (id: string, force: boolean = false) => {
     try {
-      return await apiClient.post(`/qemu/vms/${id}/stop`, { force });
+      const response = await apiClient.post(`/qemu/vms/${id}/stop`, { force });
+      console.log(`VM ${id} stop response:`, response);
+      return response;
     } catch (err) {
       console.error(`Error stopping VM ${id}:`, err);
+      toast.error(`Failed to stop VM: ${err.message || 'Unknown error'}`);
       throw err;
     }
   },
@@ -180,9 +201,12 @@ export const qemuService = {
   // Pause VM
   pauseVM: async (id: string) => {
     try {
-      return await apiClient.post(`/qemu/vms/${id}/pause`);
+      const response = await apiClient.post(`/qemu/vms/${id}/pause`);
+      console.log(`VM ${id} pause response:`, response);
+      return response;
     } catch (err) {
       console.error(`Error pausing VM ${id}:`, err);
+      toast.error(`Failed to pause VM: ${err.message || 'Unknown error'}`);
       throw err;
     }
   },
@@ -190,9 +214,12 @@ export const qemuService = {
   // Resume VM
   resumeVM: async (id: string) => {
     try {
-      return await apiClient.post(`/qemu/vms/${id}/resume`);
+      const response = await apiClient.post(`/qemu/vms/${id}/resume`);
+      console.log(`VM ${id} resume response:`, response);
+      return response;
     } catch (err) {
       console.error(`Error resuming VM ${id}:`, err);
+      toast.error(`Failed to resume VM: ${err.message || 'Unknown error'}`);
       throw err;
     }
   },
@@ -200,9 +227,12 @@ export const qemuService = {
   // Restart VM
   restartVM: async (id: string) => {
     try {
-      return await apiClient.post(`/qemu/vms/${id}/restart`);
+      const response = await apiClient.post(`/qemu/vms/${id}/restart`);
+      console.log(`VM ${id} restart response:`, response);
+      return response;
     } catch (err) {
       console.error(`Error restarting VM ${id}:`, err);
+      toast.error(`Failed to restart VM: ${err.message || 'Unknown error'}`);
       throw err;
     }
   },
@@ -210,9 +240,12 @@ export const qemuService = {
   // Create snapshot
   createSnapshot: async (id: string, name: string, description: string = '') => {
     try {
-      return await apiClient.post(`/qemu/vms/${id}/snapshot`, { name, description });
+      const response = await apiClient.post(`/qemu/vms/${id}/snapshot`, { name, description });
+      console.log(`VM ${id} snapshot response:`, response);
+      return response;
     } catch (err) {
       console.error(`Error creating snapshot for VM ${id}:`, err);
+      toast.error(`Failed to create snapshot: ${err.message || 'Unknown error'}`);
       throw err;
     }
   },
@@ -232,11 +265,14 @@ export const qemuService = {
   // Get VM console
   getConsoleOutput: async (id: string, lines: number = 100) => {
     try {
-      return await apiClient.get(`/qemu/vms/${id}/console`, {
+      const response = await apiClient.get(`/qemu/vms/${id}/console`, {
         params: { lines }
       });
+      console.log(`VM ${id} console response:`, response);
+      return response;
     } catch (err) {
       console.error(`Error fetching console for VM ${id}:`, err);
+      toast.error(`Failed to fetch console output: ${err.message || 'Unknown error'}`);
       throw err;
     }
   },
