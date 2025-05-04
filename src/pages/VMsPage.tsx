@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,7 +36,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { VMInfo, qemuService } from '@/services/qemuService';
-import CreateVMForm from '@/components/vms/CreateVMFormISOSelector';
+import CreateVMForm from '@/components/vms/CreateVMForm';
 import VMListLoader, { VMListLoaderRef } from '@/components/vms/VMListLoader';
 import {
   Table,
@@ -122,11 +121,18 @@ const VMsPage = () => {
     }
 
     if (action === 'edit') {
-      const vm = vms.find(v => v.id === vmId);
-      if (vm) {
-        setSelectedVM(vm);
+      try {
+        console.log(`Fetching details for VM ${vmId} to edit`);
+        const vmResponse = await qemuService.getVM(vmId);
+        const vmToEdit = vmResponse.data;
+        
+        console.log('VM data for edit:', vmToEdit);
+        setSelectedVM(vmToEdit);
         setIsEditMode(true);
         setCreateDialogOpen(true);
+      } catch (error) {
+        console.error(`Error fetching VM ${vmId} for editing:`, error);
+        toast.error(`Failed to load VM details for editing`);
       }
       return;
     }
@@ -262,7 +268,7 @@ const VMsPage = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <Dialog open={createDialogOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
               <Button onClick={() => {
                 setIsEditMode(false);
@@ -281,7 +287,7 @@ const VMsPage = () => {
               <CreateVMForm 
                 onSubmit={isEditMode ? handleUpdateVM : handleCreateVM} 
                 onCancel={handleDialogClose} 
-                initialValues={isEditMode ? selectedVM : undefined}
+                initialValues={selectedVM}
                 isEditMode={isEditMode}
               />
             </DialogContent>
