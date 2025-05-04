@@ -37,6 +37,8 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
     enableKVM: true,
     enableEFI: false,
     customArgs: '',
+    customISOPath: '',
+    useCustomPath: false,
   });
 
   // Initialize form with initial values if in edit mode
@@ -54,6 +56,8 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
         enableKVM: true,
         enableEFI: false,
         customArgs: '',
+        customISOPath: initialValues.customISOPath || '',
+        useCustomPath: initialValues.useCustomPath || false,
       });
     }
   }, [isEditMode, initialValues]);
@@ -96,6 +100,20 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
     setFormData({
       ...formData,
       iso,
+    });
+  };
+
+  const handleCustomISOPathChange = (path: string) => {
+    setFormData({
+      ...formData,
+      customISOPath: path,
+    });
+  };
+
+  const handleUseCustomPathChange = (use: boolean) => {
+    setFormData({
+      ...formData,
+      useCustomPath: use,
     });
   };
 
@@ -201,6 +219,10 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
             <ISOFileSelector 
               selectedISO={formData.iso}
               onISOChange={handleISOChange}
+              customISOPath={formData.customISOPath}
+              onCustomISOPathChange={handleCustomISOPathChange}
+              useCustomPath={formData.useCustomPath}
+              onUseCustomPathChange={handleUseCustomPathChange}
             />
           </TabsContent>
         </Tabs>
@@ -279,3 +301,4 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
 };
 
 export default CreateVMForm;
+
