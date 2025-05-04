@@ -84,6 +84,9 @@ export const qemuService = {
       const formData = new FormData();
       formData.append('iso', file);
       
+      // Specify the target path for the ISO file
+      formData.append('targetPath', '/virtual-dock-control-hub/src/server/iso');
+      
       console.log('Sending form data to /qemu/upload-iso');
       const response = await apiClient.post('/qemu/upload-iso', formData, {
         headers: {
