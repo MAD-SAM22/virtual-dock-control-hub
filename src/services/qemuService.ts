@@ -17,6 +17,8 @@ export interface VMInfo {
   networkType?: string;
   startedAt?: string;
   uptime?: string;
+  customISOPath?: string;
+  useCustomPath?: boolean;
 }
 
 export interface ISOFile {
