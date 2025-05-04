@@ -21,21 +21,24 @@ import { DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, MinusCircle, Upload } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { VMInfo } from '@/services/qemuService';
 
 interface CreateVMFormProps {
   onSubmit: (data: any) => void;
   onCancel: () => void;
+  initialValues?: VMInfo | null;
+  isEditMode?: boolean;
 }
 
-const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
+const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }: CreateVMFormProps) => {
   const [formData, setFormData] = useState({
-    name: '',
-    cpus: 1,
-    memory: 1,
+    name: initialValues?.name || '',
+    cpus: initialValues?.cpus ? Number(initialValues.cpus) : 1,
+    memory: initialValues?.memory ? parseInt(initialValues.memory) || 1 : 1,
     diskSize: 10,
-    os: '',
-    iso: '',
-    networkType: 'bridge',
+    os: initialValues?.os || '',
+    iso: initialValues?.iso || '',
+    networkType: initialValues?.networkType || 'bridge',
     networkBridge: 'br0',
     bootOrder: ['cdrom', 'disk', 'network'],
     enableKVM: true,
@@ -452,7 +455,7 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">Create VM</Button>
+        <Button type="submit">{isEditMode ? 'Update VM' : 'Create VM'}</Button>
       </DialogFooter>
     </form>
   );

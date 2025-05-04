@@ -1,3 +1,4 @@
+
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +37,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { VMInfo, qemuService } from '@/services/qemuService';
-import CreateVMForm from '@/components/vms/CreateVMFormISOSelector';
+import CreateVMForm from '@/components/vms/CreateVMForm';
 import VMListLoader, { VMListLoaderRef } from '@/components/vms/VMListLoader';
 import {
   Table,
@@ -60,6 +61,7 @@ const VMsPage = () => {
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0); 
+  const [isEditMode, setIsEditMode] = useState(false);
   const vmLoaderRef = useRef<VMListLoaderRef>(null);
 
   const handleVMsLoaded = (loadedVMs: VMInfo[]) => {
@@ -119,6 +121,23 @@ const VMsPage = () => {
       return;
     }
 
+    if (action === 'edit') {
+      try {
+        console.log(`Fetching details for VM ${vmId} to edit`);
+        const vmResponse = await qemuService.getVM(vmId);
+        const vmToEdit = vmResponse.data;
+        
+        console.log('VM data for edit:', vmToEdit);
+        setSelectedVM(vmToEdit);
+        setIsEditMode(true);
+        setCreateDialogOpen(true);
+      } catch (error) {
+        console.error(`Error fetching VM ${vmId} for editing:`, error);
+        toast.error(`Failed to load VM details for editing`);
+      }
+      return;
+    }
+
     try {
       if (action === 'start') {
         await qemuService.startVM(vmId);
@@ -138,8 +157,7 @@ const VMsPage = () => {
       } else if (action === 'snapshot') {
         const snapshotName = `snapshot-${Date.now()}`;
         await qemuService.createSnapshot(vmId, snapshotName);
-      } else if (action === 'edit') {
-        toast.info('Edit VM functionality coming soon');
+        toast.success(`Snapshot created successfully`);
       } else if (action === 'migrate') {
         toast.info('VM migration functionality coming soon');
       }
@@ -191,10 +209,42 @@ const VMsPage = () => {
       setCreateDialogOpen(false);
       toast.success('VM created successfully');
       triggerRefresh();
+      
+      // Reset edit mode
+      setIsEditMode(false);
+      setSelectedVM(null);
     } catch (error) {
       console.error('Error creating VM:', error);
       toast.error('Failed to create VM');
     }
+  };
+
+  const handleUpdateVM = async (formData: any) => {
+    if (!selectedVM) return;
+    
+    console.log('Updating VM with:', formData);
+    
+    try {
+      const response = await qemuService.updateVM(selectedVM.id, formData);
+      console.log('VM updated:', response.data);
+      
+      setCreateDialogOpen(false);
+      toast.success('VM updated successfully');
+      triggerRefresh();
+      
+      // Reset edit mode
+      setIsEditMode(false);
+      setSelectedVM(null);
+    } catch (error) {
+      console.error('Error updating VM:', error);
+      toast.error('Failed to update VM');
+    }
+  };
+
+  const handleDialogClose = () => {
+    setCreateDialogOpen(false);
+    setIsEditMode(false);
+    setSelectedVM(null);
   };
 
   return (
@@ -219,20 +269,29 @@ const VMsPage = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <Dialog open={createDialogOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => {
+                setIsEditMode(false);
+                setSelectedVM(null);
+                setCreateDialogOpen(true);
+              }}>
                 <Plus className="mr-2 h-4 w-4" /> Create VM
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create Virtual Machine</DialogTitle>
+                <DialogTitle>{isEditMode ? 'Edit Virtual Machine' : 'Create Virtual Machine'}</DialogTitle>
                 <DialogDescription>
-                  Configure a new QEMU virtual machine
+                  {isEditMode ? 'Modify' : 'Configure'} a QEMU virtual machine
                 </DialogDescription>
               </DialogHeader>
-              <CreateVMForm onSubmit={handleCreateVM} onCancel={() => setCreateDialogOpen(false)} />
+              <CreateVMForm 
+                onSubmit={isEditMode ? handleUpdateVM : handleCreateVM} 
+                onCancel={handleDialogClose} 
+                initialValues={selectedVM}
+                isEditMode={isEditMode}
+              />
             </DialogContent>
           </Dialog>
         </div>
