@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,13 +20,16 @@ import { DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, MinusCircle, Upload } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { VMInfo } from '@/services/qemuService';
 
 interface CreateVMFormProps {
   onSubmit: (data: any) => void;
   onCancel: () => void;
+  initialValues?: VMInfo | null;
+  isEditMode?: boolean;
 }
 
-const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
+const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }: CreateVMFormProps) => {
   const [formData, setFormData] = useState({
     name: '',
     cpus: 1,
@@ -49,6 +51,28 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
     keyboardLayout: 'en-us',
     customArgs: '',
   });
+
+  // Initialize form with initialValues if in edit mode
+  useEffect(() => {
+    if (initialValues && isEditMode) {
+      const updatedFormData = { ...formData };
+      
+      // Map VM properties to form fields
+      if (initialValues.name) updatedFormData.name = initialValues.name;
+      if (initialValues.cpus) updatedFormData.cpus = Number(initialValues.cpus);
+      if (initialValues.memory) {
+        // Extract numeric value from memory string (e.g., "2GB" -> 2)
+        const memoryValue = parseInt(initialValues.memory);
+        if (!isNaN(memoryValue)) updatedFormData.memory = memoryValue;
+      }
+      if (initialValues.os) updatedFormData.os = initialValues.os;
+      if (initialValues.iso) updatedFormData.iso = initialValues.iso;
+      if (initialValues.networkType) updatedFormData.networkType = initialValues.networkType;
+      
+      // Set form data with values from VM
+      setFormData(updatedFormData);
+    }
+  }, [initialValues, isEditMode]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -452,7 +476,7 @@ const CreateVMForm = ({ onSubmit, onCancel }: CreateVMFormProps) => {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">Create VM</Button>
+        <Button type="submit">{isEditMode ? 'Update VM' : 'Create VM'}</Button>
       </DialogFooter>
     </form>
   );
