@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,13 +32,13 @@ interface CreateVMFormProps {
 
 const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }: CreateVMFormProps) => {
   const [formData, setFormData] = useState({
-    name: '',
-    cpus: 1,
-    memory: 1,
+    name: initialValues?.name || '',
+    cpus: initialValues?.cpus ? Number(initialValues.cpus) : 1,
+    memory: initialValues?.memory ? parseInt(initialValues.memory) || 1 : 1,
     diskSize: 10,
-    os: '',
-    iso: '',
-    networkType: 'bridge',
+    os: initialValues?.os || '',
+    iso: initialValues?.iso || '',
+    networkType: initialValues?.networkType || 'bridge',
     networkBridge: 'br0',
     bootOrder: ['cdrom', 'disk', 'network'],
     enableKVM: true,
@@ -51,28 +52,6 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
     keyboardLayout: 'en-us',
     customArgs: '',
   });
-
-  // Initialize form with initialValues if in edit mode
-  useEffect(() => {
-    if (initialValues && isEditMode) {
-      const updatedFormData = { ...formData };
-      
-      // Map VM properties to form fields
-      if (initialValues.name) updatedFormData.name = initialValues.name;
-      if (initialValues.cpus) updatedFormData.cpus = Number(initialValues.cpus);
-      if (initialValues.memory) {
-        // Extract numeric value from memory string (e.g., "2GB" -> 2)
-        const memoryValue = parseInt(initialValues.memory);
-        if (!isNaN(memoryValue)) updatedFormData.memory = memoryValue;
-      }
-      if (initialValues.os) updatedFormData.os = initialValues.os;
-      if (initialValues.iso) updatedFormData.iso = initialValues.iso;
-      if (initialValues.networkType) updatedFormData.networkType = initialValues.networkType;
-      
-      // Set form data with values from VM
-      setFormData(updatedFormData);
-    }
-  }, [initialValues, isEditMode]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

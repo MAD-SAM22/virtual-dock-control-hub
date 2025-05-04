@@ -1,3 +1,4 @@
+
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -273,6 +274,7 @@ const VMsPage = () => {
               <Button onClick={() => {
                 setIsEditMode(false);
                 setSelectedVM(null);
+                setCreateDialogOpen(true);
               }}>
                 <Plus className="mr-2 h-4 w-4" /> Create VM
               </Button>
