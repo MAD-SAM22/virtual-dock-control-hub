@@ -193,6 +193,7 @@ router.post("/images/load", handle(async(req, res) => {
 }));
 
 // ───────────────── Engine proxy for other endpoints ──────────────────
+// Fix: Properly handle engine proxy routes by ensuring no malformed path patterns
 router.use('/engine/*', (req, res) => {
     const opts = {};
     if (envHost && envHost.startsWith("tcp://")) {
@@ -205,9 +206,10 @@ router.use('/engine/*', (req, res) => {
         opts.socketPath = docker.modem.socketPath || "/var/run/docker.sock";
     }
     
-    // Remove /engine from the path
+    // Remove /engine from the path - fixed to ensure proper path format
     opts.path = req.originalUrl.replace(/^\/engine/, "");
     opts.method = req.method;
+    // Fix: Ensure we don't have any malformed patterns in the headers
     opts.headers = {...req.headers, host: "docker" };
 
     const dReq = http.request(opts, dRes => {

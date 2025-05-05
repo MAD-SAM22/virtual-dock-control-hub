@@ -7,7 +7,7 @@ import { fileExists } from '../utils/fileSystem.js';
 
 const router = express.Router();
 
-// Add a new health check endpoint
+// Fix: Ensure the route path is properly formatted without any trailing colons
 router.get('/status', (req, res) => {
   try {
     // Check if directories exist

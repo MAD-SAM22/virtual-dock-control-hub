@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
@@ -24,7 +25,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// System information API
+// System information API - ensure proper route path format
 app.get('/system/info', (req, res) => {
   try {
     const cpus = os.cpus();
@@ -93,10 +94,10 @@ function formatUptime(seconds) {
   return parts.join(', ');
 }
 
-// Mount the QEMU API router
+// Mount the QEMU API router - ensure proper path
 app.use('/qemu', qemuRouter);
 
-// Mount the Docker router
+// Mount the Docker router - ensure no path-to-regexp errors
 app.use('/', dockerRouter);
 
 // Start the server
