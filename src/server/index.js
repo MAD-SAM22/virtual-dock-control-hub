@@ -1,8 +1,7 @@
-
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import qemuRouter from './qemuServer.js';
+import qemuRouter from './qemu/index.js';
 import dockerRouter from './dockerServer.js';
 import os from 'os';
 
@@ -94,7 +93,7 @@ function formatUptime(seconds) {
   return parts.join(', ');
 }
 
-// Mount the QEMU router
+// Mount the QEMU API router
 app.use('/qemu', qemuRouter);
 
 // Mount the Docker router
