@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -33,27 +34,41 @@ const DashboardPage = () => {
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
-      setTimeout(() => {
-        setContainers([
-          { id: 'c1', name: 'nginx-proxy', image: 'nginx:latest', status: 'running', created: '2 days ago', cpu: '0.5%', memory: '128MB' },
-          { id: 'c2', name: 'postgres-db', image: 'postgres:13', status: 'running', created: '5 days ago', cpu: '1.2%', memory: '256MB' },
-          { id: 'c3', name: 'redis-cache', image: 'redis:alpine', status: 'paused', created: '1 day ago', cpu: '0%', memory: '64MB' },
-        ]);
+      // Fetch containers
+      const containersResponse = await containerService.getContainers(true);
+      if (containersResponse && containersResponse.data) {
+        // Format the container data for display
+        const formattedContainers = Array.isArray(containersResponse.data) 
+          ? containersResponse.data.map(c => ({
+              id: c.Id || c.id,
+              name: c.Names ? c.Names[0].replace(/^\//, '') : c.name || 'unknown',
+              image: c.Image || c.image || 'unknown',
+              status: c.State || c.status || 'unknown',
+              created: c.Created ? new Date(c.Created * 1000).toLocaleString() : c.created || 'unknown',
+              cpu: c.cpu || '0%',
+              memory: c.memory || '0MB'
+            }))
+          : [];
         
-        setImages([
-          { id: 'i1', repository: 'nginx', tag: 'latest', size: '133MB', created: '2 weeks ago' },
-          { id: 'i2', repository: 'postgres', tag: '13', size: '314MB', created: '1 month ago' },
-          { id: 'i3', repository: 'redis', tag: 'alpine', size: '32MB', created: '3 weeks ago' },
-        ]);
-        
-        setVMs([
-          { id: 'v1', name: 'ubuntu-server', status: 'running', memory: '2GB', cpu: '2 cores', storage: '20GB' },
-          { id: 'v2', name: 'windows-test', status: 'stopped', memory: '4GB', cpu: '4 cores', storage: '50GB' },
-        ]);
-        
-        setIsLoading(false);
-      }, 1000);
+        setContainers(formattedContainers);
+      }
+      
+      // Fetch images
+      const imagesResponse = await imageService.getImages(true);
+      if (imagesResponse && imagesResponse.data) {
+        setImages(imagesResponse.data);
+      }
+      
+      // Fetch VMs
+      const vmsResponse = await qemuService.getVMs();
+      if (vmsResponse && vmsResponse.data) {
+        setVMs(vmsResponse.data);
+      }
+      
+      setIsLoading(false);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError('Failed to load dashboard data');
@@ -69,7 +84,7 @@ const DashboardPage = () => {
     { 
       title: 'Containers', 
       value: containers.length, 
-      running: containers.filter(c => c.status === 'running').length,
+      running: containers.filter(c => c.status === 'running' || c.status.includes('Up')).length,
       icon: <Box className="h-5 w-5 text-docker-blue" /> 
     },
     { 
@@ -203,15 +218,15 @@ const DashboardPage = () => {
                         <Box className="h-6 w-6 mx-auto animate-spin text-muted-foreground" />
                       </TableCell>
                     </TableRow>
-                  ) : (
+                  ) : containers.length > 0 ? (
                     containers.slice(0, 3).map((container) => (
                       <TableRow key={container.id} className="border-b last:border-b-0">
                         <TableCell className="py-3 px-4">{container.name}</TableCell>
                         <TableCell className="py-3 px-4 text-sm">{container.image}</TableCell>
                         <TableCell className="py-3 px-4">
                           <span className={`status-badge ${
-                            container.status === 'running' ? 'status-running' :
-                            container.status === 'paused' ? 'status-paused' : 'status-stopped'
+                            container.status.includes('Up') || container.status === 'running' ? 'status-running' :
+                            container.status.includes('Paused') || container.status === 'paused' ? 'status-paused' : 'status-stopped'
                           }`}>
                             {container.status}
                           </span>
@@ -221,6 +236,12 @@ const DashboardPage = () => {
                         </TableCell>
                       </TableRow>
                     ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-4 text-center">
+                        No containers found
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </table>
@@ -251,7 +272,7 @@ const DashboardPage = () => {
                         <Server className="h-6 w-6 mx-auto animate-spin text-muted-foreground" />
                       </TableCell>
                     </TableRow>
-                  ) : (
+                  ) : vms.length > 0 ? (
                     vms.map((vm) => (
                       <TableRow key={vm.id} className="border-b last:border-b-0">
                         <TableCell className="py-3 px-4">{vm.name}</TableCell>
@@ -263,9 +284,15 @@ const DashboardPage = () => {
                           </span>
                         </TableCell>
                         <TableCell className="py-3 px-4">{vm.memory}</TableCell>
-                        <TableCell className="py-3 px-4">{vm.cpu}</TableCell>
+                        <TableCell className="py-3 px-4">{vm.cpus}</TableCell>
                       </TableRow>
                     ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-4 text-center">
+                        No VMs found
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </table>
