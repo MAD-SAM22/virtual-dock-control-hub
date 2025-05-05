@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -13,7 +14,9 @@ import { Box, Image, Server, Activity, AlertTriangle, CheckCircle } from 'lucide
 import { containerService } from '@/services/dockerService';
 import { imageService } from '@/services/dockerService';
 import { qemuService } from '@/services/qemuService';
+import axios from 'axios';
 import { toast } from 'sonner';
+import apiClient from '@/services/apiClient';
 
 const generateMockData = (count: number) => {
   return Array.from({ length: count }, (_, i) => ({
@@ -25,8 +28,16 @@ const generateMockData = (count: number) => {
 };
 
 interface SystemInfo {
-  cpuLoad: number;
-  memoryUsage: number;
+  hostname?: string;
+  platform?: string;
+  uptime?: number;
+  uptimeFormatted?: string;
+  cpuCount?: number;
+  cpuModel?: string;
+  cpuLoad: string | number;
+  totalMemory?: string;
+  freeMemory?: string;
+  memoryUsage: string | number;
   diskUsage: number;
 }
 
@@ -43,47 +54,30 @@ const DashboardPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [systemData] = useState(() => generateMockData(24));
 
-  const getSystemLoad = async () => {
+  const getSystemInfo = async () => {
     try {
-      // This would normally be replaced with an actual API call to get system metrics
-      // Since we don't have a direct API for this, we'll simulate it based on container metrics
-      let totalCpuPercent = 0;
+      const response = await apiClient.get('/system/info');
+      const data = response.data.system;
       
-      // Try to get detailed stats for containers to calculate system load
-      if (containers.length > 0) {
-        // Sample a few containers for their stats to estimate load
-        const containerIds = containers.slice(0, Math.min(3, containers.length)).map(c => c.id);
-        
-        for (const id of containerIds) {
-          try {
-            const statsResponse = await containerService.getContainerStats(id, false);
-            if (statsResponse && statsResponse.data) {
-              // Extract CPU percentage if available in the stats
-              const cpuPercent = statsResponse.data.cpu_stats?.cpu_usage?.total_usage || 0;
-              totalCpuPercent += cpuPercent;
-            }
-          } catch (err) {
-            console.warn(`Failed to get stats for container ${id}`, err);
-          }
-        }
-      }
+      // Parse CPU load from string to number if needed
+      const cpuLoad = typeof data.cpuLoad === 'string' ? 
+        parseInt(data.cpuLoad.replace('%', '')) : 
+        data.cpuLoad;
       
-      // If we couldn't get real metrics, generate a simulated value
-      const simulatedCpuLoad = containers.length > 0 
-        ? Math.min(50 + (containers.length * 5) + Math.random() * 20, 95) 
-        : 10 + Math.random() * 15;
-        
-      // Randomize memory and disk usage for demo
-      const simulatedMemoryUsage = 25 + Math.random() * 40;
-      const simulatedDiskUsage = 30 + Math.random() * 30;
+      // Parse memory usage from string to number if needed
+      const memoryUsage = typeof data.memoryUsage === 'string' ? 
+        parseInt(data.memoryUsage.replace('%', '')) : 
+        data.memoryUsage;
       
       setSystemInfo({
-        cpuLoad: totalCpuPercent > 0 ? totalCpuPercent : Math.round(simulatedCpuLoad),
-        memoryUsage: Math.round(simulatedMemoryUsage),
-        diskUsage: Math.round(simulatedDiskUsage)
+        ...data,
+        cpuLoad,
+        memoryUsage,
+        // Estimate disk usage since it's not provided in the API
+        diskUsage: Math.round(30 + Math.random() * 30)
       });
     } catch (err) {
-      console.error('Error getting system load:', err);
+      console.error('Error getting system info:', err);
       // Fallback to simulated values
       setSystemInfo({
         cpuLoad: Math.round(20 + Math.random() * 30),
@@ -129,8 +123,8 @@ const DashboardPage = () => {
         setVMs(vmsResponse.data);
       }
       
-      // Get system load information
-      await getSystemLoad();
+      // Get system info
+      await getSystemInfo();
       
       setIsLoading(false);
     } catch (err) {
@@ -146,7 +140,7 @@ const DashboardPage = () => {
     
     // Set up refresh interval for system metrics
     const intervalId = setInterval(() => {
-      getSystemLoad();
+      getSystemInfo();
     }, 30000); // Refresh every 30 seconds
     
     return () => {
@@ -185,7 +179,7 @@ const DashboardPage = () => {
     },
     { 
       title: 'System Load', 
-      value: `${systemInfo.cpuLoad}%`, 
+      value: `${typeof systemInfo.cpuLoad === 'number' ? systemInfo.cpuLoad : systemInfo.cpuLoad}%`, 
       icon: <Activity className="h-5 w-5 text-primary" /> 
     },
   ];
