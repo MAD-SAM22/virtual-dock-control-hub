@@ -32,42 +32,51 @@ const handle = fn => (req, res) => fn(req, res).catch(err => {
 
 // ───────────────── Convenience container helpers ────────────
 router.get("/containers", handle(async(req, res) => {
+    console.log("GET /containers request received");
     const opts = {
         all: bool(req.query.all),
         limit: req.query.limit ? Number(req.query.limit) : undefined,
         size: bool(req.query.size),
         filters: req.query.filters ? JSON.parse(req.query.filters) : undefined,
     };
-    res.json(await docker.listContainers(opts));
+    const result = await docker.listContainers(opts);
+    console.log(`Returning ${result.length} containers`);
+    res.json(result);
 }));
 
 router.get("/containers/:id", handle(async(req, res) => {
+    console.log(`GET /containers/${req.params.id} request received`);
     res.json(await docker.getContainer(req.params.id).inspect({ size: bool(req.query.size) }));
 }));
 
 router.post("/containers", handle(async(req, res) => {
+    console.log("POST /containers request received", req.body);
     const ctr = await docker.createContainer({...req.body, name: req.query.name });
     res.status(201).json({ Id: ctr.id, Warnings: [] });
 }));
 
 ["start", "stop", "restart", "kill", "pause", "unpause"].forEach(action => {
     router.post(`/containers/:id/${action}`, handle(async(req, res) => {
+        console.log(`POST /containers/${req.params.id}/${action} request received`);
         await docker.getContainer(req.params.id)[action]();
         res.sendStatus(204);
     }));
 });
 
 router.post("/containers/:id/rename", handle(async(req, res) => {
+    console.log(`POST /containers/${req.params.id}/rename request received`);
     await docker.getContainer(req.params.id).rename({ name: req.query.name });
     res.sendStatus(204);
 }));
 
 router.post("/containers/:id/update", handle(async(req, res) => {
+    console.log(`POST /containers/${req.params.id}/update request received`);
     await docker.getContainer(req.params.id).update(req.body);
     res.sendStatus(204);
 }));
 
 router.delete("/containers/:id", handle(async(req, res) => {
+    console.log(`DELETE /containers/${req.params.id} request received`);
     await docker.getContainer(req.params.id).remove({
         v: bool(req.query.v),
         force: bool(req.query.force),
@@ -77,6 +86,7 @@ router.delete("/containers/:id", handle(async(req, res) => {
 }));
 
 router.get("/containers/:id/logs", handle(async(req, res) => {
+    console.log(`GET /containers/${req.params.id}/logs request received`);
     const o = {
         follow: bool(req.query.follow),
         stdout: bool(req.query.stdout, true),
@@ -98,19 +108,23 @@ router.get("/containers/:id/logs", handle(async(req, res) => {
 }));
 
 router.get("/containers/:id/stats", handle(async(req, res) => {
+    console.log(`GET /containers/${req.params.id}/stats request received`);
     const stream = await docker.getContainer(req.params.id).stats({ stream: bool(req.query.stream, true) });
     res.writeHead(200, { "Content-Type": "application/json" });
     stream.pipe(res);
 }));
 
 // ───────────────── Convenience image helpers ────────────────
-// 1. List images — already implemented
-router.get("/images", handle(async(req, res) => {
-    res.json(await docker.listImages({
+// 1. List images
+router.get("/images/json", handle(async(req, res) => {
+    console.log("GET /images/json request received");
+    const images = await docker.listImages({
         all: bool(req.query.all),
         digests: bool(req.query.digests),
         filters: req.query.filters ? JSON.parse(req.query.filters) : undefined,
-    }));
+    });
+    console.log(`Returning ${images.length} images`);
+    res.json(images);
 }));
 
 // 2. Inspect image
@@ -192,8 +206,8 @@ router.post("/images/load", handle(async(req, res) => {
 }));
 
 // ───────────────── Engine proxy for other endpoints ──────────────────
-// Fixed: Use wildcard pattern without parameter name confusion
 router.use('/engine', (req, res) => {
+    console.log(`Engine proxy request for: ${req.method} ${req.originalUrl}`);
     const opts = {};
     if (envHost && envHost.startsWith("tcp://")) {
         const { hostname, port } = new URL(envHost);
@@ -205,12 +219,12 @@ router.use('/engine', (req, res) => {
         opts.socketPath = docker.modem.socketPath || "/var/run/docker.sock";
     }
     
-    // Remove /engine from the path - fixed to ensure proper path format
+    // Remove /engine from the path
     opts.path = req.originalUrl.replace(/^\/engine/, "");
     opts.method = req.method;
-    // Fix: Ensure we don't have any malformed patterns in the headers
     opts.headers = {...req.headers, host: "docker" };
 
+    console.log(`Proxying to Docker engine: ${opts.method} ${opts.path}`);
     const dReq = http.request(opts, dRes => {
         res.writeHead(dRes.statusCode, dRes.headers);
         pipeline(dRes, res, () => {});

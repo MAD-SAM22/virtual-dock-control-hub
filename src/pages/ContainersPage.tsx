@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -318,39 +317,50 @@ const ContainersPage = () => {
     }
 
     try {
-      // Simulate API call
+      let apiCall;
+      let successMessage = '';
+      
+      // Determine which API call to make based on the action
+      switch(action) {
+        case 'start':
+          apiCall = containerService.startContainer(containerId);
+          successMessage = 'Container started successfully';
+          break;
+        case 'stop':
+          apiCall = containerService.stopContainer(containerId);
+          successMessage = 'Container stopped successfully';
+          break;
+        case 'pause':
+          apiCall = containerService.pauseContainer(containerId);
+          successMessage = 'Container paused successfully';
+          break;
+        case 'unpause':
+          apiCall = containerService.unpauseContainer(containerId);
+          successMessage = 'Container unpaused successfully';
+          break;
+        case 'restart':
+          apiCall = containerService.restartContainer(containerId);
+          successMessage = 'Container restarted successfully';
+          break;
+        default:
+          toast.error(`Unsupported action: ${action}`);
+          return;
+      }
+      
+      // Execute the API call with toast notifications
       toast.promise(
-        // This would be the actual API call in a real app
-        new Promise((resolve) => setTimeout(resolve, 1000)),
+        apiCall,
         {
           loading: `${action.charAt(0).toUpperCase() + action.slice(1)}ing container...`,
           success: () => {
-            // Update container state in the UI for demo
-            if (action === 'start') {
-              setContainers(containers.map(c => 
-                c.id === containerId ? { ...c, state: 'running', status: 'Up 1 second' } : c
-              ));
-            } else if (action === 'stop') {
-              setContainers(containers.map(c => 
-                c.id === containerId ? { ...c, state: 'exited', status: 'Exited (0) 1 second ago' } : c
-              ));
-            } else if (action === 'pause') {
-              setContainers(containers.map(c => 
-                c.id === containerId ? { ...c, state: 'paused', status: 'Paused' } : c
-              ));
-            } else if (action === 'unpause') {
-              setContainers(containers.map(c => 
-                c.id === containerId ? { ...c, state: 'running', status: 'Up 1 second (was paused)' } : c
-              ));
-            } else if (action === 'restart') {
-              setContainers(containers.map(c => 
-                c.id === containerId ? { ...c, state: 'running', status: 'Up 1 second (restarted)' } : c
-              ));
-            }
-            
-            return `Container ${action}ed successfully`;
+            // Refresh container list after successful action
+            fetchContainers();
+            return successMessage;
           },
-          error: `Failed to ${action} container`,
+          error: (err) => {
+            console.error(`Error ${action}ing container:`, err);
+            return `Failed to ${action} container`;
+          }
         }
       );
     } catch (error) {
@@ -364,23 +374,33 @@ const ContainersPage = () => {
     setConfirmDialogOpen(false);
     
     try {
+      let apiCall;
+      let successMessage = '';
+      
+      if (action === 'delete') {
+        apiCall = containerService.deleteContainer(containerId, true);
+        successMessage = 'Container deleted successfully';
+      } else if (action === 'kill') {
+        apiCall = containerService.killContainer(containerId);
+        successMessage = 'Container killed successfully';
+      } else {
+        toast.error(`Unsupported action: ${action}`);
+        return;
+      }
+      
       toast.promise(
-        // This would be the actual API call in a real app
-        new Promise((resolve) => setTimeout(resolve, 1000)),
+        apiCall,
         {
           loading: `${action.charAt(0).toUpperCase() + action.slice(1)}ing container...`,
           success: () => {
-            if (action === 'delete') {
-              // Remove container from state
-              setContainers(containers.filter(c => c.id !== containerId));
-            } else if (action === 'kill') {
-              setContainers(containers.map(c => 
-                c.id === containerId ? { ...c, state: 'exited', status: 'Exited (137) 1 second ago' } : c
-              ));
-            }
-            return `Container ${action}d successfully`;
+            // Refresh container list after successful action
+            fetchContainers();
+            return successMessage;
           },
-          error: `Failed to ${action} container`,
+          error: (err) => {
+            console.error(`Error ${action}ing container:`, err);
+            return `Failed to ${action} container`;
+          }
         }
       );
     } catch (error) {

@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -67,7 +68,7 @@ export const containerService = {
   // Get container details
   getContainer: async (id: string) => {
     try {
-      const res = await apiClient.get(`/containers/${id}/json`);
+      const res = await apiClient.get(`/containers/${id}`);
       return res;
     } catch (err) {
       toast.info('Fetching Data Error: Using mock container data');
@@ -185,7 +186,7 @@ export const imageService = {
       if (res && res.data && Array.isArray(res.data)) {
         // API call successful, transform the data to match our expected format
         const formattedImages = res.data.map(img => ({
-          id: img.Id,
+          id: img.Id.replace('sha256:', '').substring(0, 12),
           repository: (img.RepoTags && img.RepoTags.length > 0) ? img.RepoTags[0].split(':')[0] : 'none',
           tag: (img.RepoTags && img.RepoTags.length > 0) ? img.RepoTags[0].split(':')[1] : 'none',
           size: `${Math.round(img.Size / (1024 * 1024))}MB`,

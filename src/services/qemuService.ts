@@ -83,9 +83,6 @@ export const qemuService = {
       const formData = new FormData();
       formData.append('iso', file);
       
-      // Specify the target path for the ISO file
-      formData.append('targetPath', '/virtual-dock-control-hub/src/server/iso');
-      
       console.log('Sending form data to /qemu/upload-iso');
       const response = await apiClient.post('/qemu/upload-iso', formData, {
         headers: {
@@ -141,21 +138,33 @@ export const qemuService = {
   createVM: async (data: any) => {
     try {
       console.log('Creating VM with data:', data);
-      // Log whether we're using an existing disk
+      // Ensure all required fields are present
+      const requiredFields = ['name', 'memory', 'cpus'];
+      const missingFields = requiredFields.filter(field => !data[field]);
+      
+      if (missingFields.length > 0) {
+        const errorMsg = `Missing required fields: ${missingFields.join(', ')}`;
+        console.error(errorMsg);
+        toast.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // Log disk information
       if (data.diskName) {
         console.log(`Using existing disk: ${data.diskName}`);
       } else if (data.diskSize) {
         console.log(`Creating new disk with size: ${data.diskSize}GB`);
       } else {
-        console.log('No disk information provided');
+        console.warn('No disk information provided');
       }
       
       const response = await apiClient.post('/qemu/create-vm', data);
+      console.log('Create VM response:', response);
       toast.success(`VM ${data.name} created successfully`);
       return response;
     } catch (err: any) {
       console.error('Error creating VM:', err);
-      const errorMessage = err.response?.data?.error || 'Failed to create VM';
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to create VM';
       toast.error(errorMessage);
       throw err;
     }

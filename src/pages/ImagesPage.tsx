@@ -33,6 +33,7 @@ import {
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { qemuService } from '@/services/qemuService';
+import { imageService } from '@/services/dockerService';
 import apiClient from '@/services/apiClient';
 
 interface Image {
@@ -92,24 +93,13 @@ const ImagesPage = () => {
     setIsLoading(true);
     try {
       console.log('Attempting to fetch Docker images from API');
-      const response = await apiClient.get('/images/json?all=true');
+      const response = await imageService.getImages(true);
       console.log('Docker images API response:', response);
       
       if (response && response.data && Array.isArray(response.data)) {
         console.log('Valid Docker images data received from API');
-        const formattedImages = response.data.map((img: DockerImage) => {
-          const tagName = img.RepoTags && img.RepoTags.length > 0 ? img.RepoTags[0] : 'None';
-          return {
-            id: img.Id.substring(7, 19),
-            name: tagName,
-            size: formatBytes(img.Size),
-            format: 'docker',
-            lastModified: new Date(img.Created * 1000).toISOString().split('T')[0],
-            description: `Docker image with ID ${img.Id.substring(7, 19)}`
-          };
-        });
-        setImages(formattedImages);
-        setFilteredImages(formattedImages);
+        setImages(response.data);
+        setFilteredImages(response.data);
         setIsLoading(false);
       } else {
         console.warn('Unexpected Docker images data format received, using mock data');
@@ -191,25 +181,20 @@ const ImagesPage = () => {
     setConfirmDialogOpen(false);
     
     try {
-      try {
-        console.log(`Attempting to delete image with ID: ${selectedImageId}`);
-        await apiClient.delete(`/images/${selectedImageId}`);
-        toast.success('Image deleted successfully');
-        setImages(images.filter(img => img.id !== selectedImageId));
-      } catch (apiError) {
-        console.warn('API call to delete image failed, simulating success:', apiError);
-        toast.promise(
-          new Promise((resolve) => setTimeout(resolve, 1000)),
-          {
-            loading: 'Deleting image...',
-            success: () => {
-              setImages(images.filter(img => img.id !== selectedImageId));
-              return 'Image deleted successfully';
-            },
-            error: 'Failed to delete image',
+      toast.promise(
+        imageService.deleteImage(selectedImageId),
+        {
+          loading: 'Deleting image...',
+          success: () => {
+            setImages(images.filter(img => img.id !== selectedImageId));
+            return 'Image deleted successfully';
+          },
+          error: (err) => {
+            console.error('Error deleting image:', err);
+            return 'Failed to delete image';
           }
-        );
-      }
+        }
+      );
     } catch (error) {
       console.error('Error deleting image:', error);
       toast.error('Failed to delete image');
