@@ -32,7 +32,7 @@ export const SNAPSHOT_DIR = path.join(__dirname, '../snapshots');
 // Create directories if they don't exist
 ensureDirectories([DISK_DIR, ISO_DIR, VM_DIR, SNAPSHOT_DIR]);
 
-// Register routes
+// Register routes - use root path '/' instead of any path pattern that might cause issues
 router.use('/', isoRoutes);
 router.use('/', diskRoutes);
 router.use('/', vmRoutes);

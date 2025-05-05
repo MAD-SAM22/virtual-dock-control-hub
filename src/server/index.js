@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
@@ -94,10 +93,10 @@ function formatUptime(seconds) {
   return parts.join(', ');
 }
 
-// Mount the QEMU API router - ensure proper path
+// Mount the QEMU API router - ensuring proper path
 app.use('/qemu', qemuRouter);
 
-// Mount the Docker router - ensure no path-to-regexp errors
+// Mount the Docker router - ensuring no path-to-regexp errors
 app.use('/', dockerRouter);
 
 // Start the server

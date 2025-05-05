@@ -1,4 +1,3 @@
-
 import express from 'express';
 import http from 'http';
 import fs from 'fs';
@@ -193,8 +192,8 @@ router.post("/images/load", handle(async(req, res) => {
 }));
 
 // ───────────────── Engine proxy for other endpoints ──────────────────
-// Fix: Properly handle engine proxy routes by ensuring no malformed path patterns
-router.use('/engine/*', (req, res) => {
+// Fixed: Use wildcard pattern without parameter name confusion
+router.use('/engine', (req, res) => {
     const opts = {};
     if (envHost && envHost.startsWith("tcp://")) {
         const { hostname, port } = new URL(envHost);
