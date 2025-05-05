@@ -134,39 +134,30 @@ export const qemuService = {
     }
   },
 
-  // Create VM
-  createVM: async (data: any) => {
+  // Create a new VM
+  createVM: async (vmData: any) => {
+    console.log('Creating VM with data:', vmData);
+    
+    // Format the data to match what the API expects
+    const formattedData = {
+      name: vmData.name,
+      cpus: vmData.cpus,
+      memory: vmData.memory,
+      diskName: vmData.diskName || 'test-vm', // Default disk if not provided
+      os: vmData.os,
+      iso: vmData.iso,
+      networkType: vmData.networkType || 'bridge',
+      networkBridge: vmData.networkBridge,
+      enableKVM: vmData.enableKVM !== undefined ? vmData.enableKVM : true,
+      enableEFI: vmData.enableEFI,
+      customArgs: vmData.customArgs
+    };
+    
     try {
-      console.log('Creating VM with data:', data);
-      // Ensure all required fields are present
-      const requiredFields = ['name', 'memory', 'cpus'];
-      const missingFields = requiredFields.filter(field => !data[field]);
-      
-      if (missingFields.length > 0) {
-        const errorMsg = `Missing required fields: ${missingFields.join(', ')}`;
-        console.error(errorMsg);
-        toast.error(errorMsg);
-        throw new Error(errorMsg);
-      }
-      
-      // Log disk information
-      if (data.diskName) {
-        console.log(`Using existing disk: ${data.diskName}`);
-      } else if (data.diskSize) {
-        console.log(`Creating new disk with size: ${data.diskSize}GB`);
-      } else {
-        console.warn('No disk information provided');
-      }
-      
-      const response = await apiClient.post('/qemu/create-vm', data);
-      console.log('Create VM response:', response);
-      toast.success(`VM ${data.name} created successfully`);
-      return response;
-    } catch (err: any) {
-      console.error('Error creating VM:', err);
-      const errorMessage = err.response?.data?.error || err.message || 'Failed to create VM';
-      toast.error(errorMessage);
-      throw err;
+      return apiClient.post('/qemu/create-vm', formattedData);
+    } catch (error) {
+      console.error('Error creating VM:', error);
+      throw error;
     }
   },
 

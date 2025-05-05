@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, MinusCircle, Upload } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { VMInfo } from '@/services/qemuService';
+import { toast } from 'sonner';
 
 interface CreateVMFormProps {
   onSubmit: (data: any) => void;
@@ -35,6 +36,7 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
     name: initialValues?.name || '',
     cpus: initialValues?.cpus ? Number(initialValues.cpus) : 1,
     memory: initialValues?.memory ? parseInt(initialValues.memory) || 1 : 1,
+    diskName: '',
     diskSize: 10,
     os: initialValues?.os || '',
     iso: initialValues?.iso || '',
@@ -53,8 +55,55 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
     customArgs: '',
   });
 
+  const [existingDisks, setExistingDisks] = useState<string[]>([]);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Fetch existing disks on component mount
+  useEffect(() => {
+    const fetchExistingDisks = async () => {
+      try {
+        // Mock data for now - in a real application you would fetch this from your API
+        setExistingDisks(['test-vm.qcow2', 'debian.qcow2', 'ubuntu.qcow2', 'windows.qcow2']);
+      } catch (error) {
+        console.error('Error fetching disks:', error);
+        setExistingDisks([]);
+      }
+    };
+
+    fetchExistingDisks();
+  }, []);
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!formData.name.trim()) {
+      errors.name = 'VM name is required';
+    }
+    
+    if (!formData.cpus || formData.cpus <= 0) {
+      errors.cpus = 'CPU cores must be greater than 0';
+    }
+    
+    if (!formData.memory || formData.memory <= 0) {
+      errors.memory = 'Memory must be greater than 0';
+    }
+    
+    if (!formData.diskName && !isEditMode) {
+      errors.diskName = 'Disk name is required';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      toast.error('Please correct the form errors');
+      return;
+    }
+    
     onSubmit(formData);
   };
 
@@ -63,6 +112,14 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
       ...formData,
       [e.target.name]: e.target.value,
     });
+    
+    // Clear error for this field if it exists
+    if (formErrors[e.target.name]) {
+      setFormErrors({
+        ...formErrors,
+        [e.target.name]: '',
+      });
+    }
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
@@ -72,6 +129,14 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
         ...formData,
         [field]: value,
       });
+      
+      // Clear error for this field if it exists
+      if (formErrors[field]) {
+        setFormErrors({
+          ...formErrors,
+          [field]: '',
+        });
+      }
     }
   };
 
@@ -80,6 +145,14 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
       ...formData,
       [field]: value[0],
     });
+    
+    // Clear error for this field if it exists
+    if (formErrors[field]) {
+      setFormErrors({
+        ...formErrors,
+        [field]: '',
+      });
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -87,6 +160,14 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
       ...formData,
       [name]: value,
     });
+    
+    // Clear error for this field if it exists
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: '',
+      });
+    }
   };
 
   const handleCheckboxChange = (name: string, checked: boolean) => {
@@ -139,7 +220,9 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
               value={formData.name}
               onChange={handleChange}
               required
+              className={formErrors.name ? "border-red-500" : ""}
             />
+            {formErrors.name && <p className="text-xs text-red-500">{formErrors.name}</p>}
           </div>
           
           <div className="space-y-2">
@@ -193,6 +276,7 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
               step={1}
               onValueChange={(value) => handleSliderChange('cpus', value)}
             />
+            {formErrors.cpus && <p className="text-xs text-red-500">{formErrors.cpus}</p>}
           </div>
           
           <div className="space-y-2">
@@ -204,21 +288,32 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
               step={0.5}
               onValueChange={(value) => handleSliderChange('memory', value)}
             />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="diskSize">Disk Size (GB): {formData.diskSize}</Label>
-            <Slider
-              value={[formData.diskSize]}
-              min={5}
-              max={500}
-              step={5}
-              onValueChange={(value) => handleSliderChange('diskSize', value)}
-            />
+            {formErrors.memory && <p className="text-xs text-red-500">{formErrors.memory}</p>}
           </div>
         </TabsContent>
         
         <TabsContent value="storage" className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="diskName">Existing Disk</Label>
+            <Select
+              value={formData.diskName}
+              onValueChange={(value) => handleSelectChange('diskName', value)}
+            >
+              <SelectTrigger className={formErrors.diskName ? "border-red-500" : ""}>
+                <SelectValue placeholder="Select existing disk" />
+              </SelectTrigger>
+              <SelectContent>
+                {existingDisks.map(disk => (
+                  <SelectItem key={disk} value={disk}>{disk}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {formErrors.diskName && <p className="text-xs text-red-500">{formErrors.diskName}</p>}
+            <p className="text-xs text-muted-foreground">
+              Select an existing disk from your storage
+            </p>
+          </div>
+          
           <div className="space-y-2">
             <Label htmlFor="diskFormat">Disk Format</Label>
             <Select

@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -203,6 +202,12 @@ const VMsPage = () => {
     console.log('Creating VM with:', formData);
     
     try {
+      // Ensure all required fields are present
+      if (!formData.name || !formData.cpus || !formData.memory || !formData.diskName) {
+        toast.error('Missing required VM parameters');
+        return;
+      }
+      
       const response = await qemuService.createVM(formData);
       console.log('VM created:', response.data);
       
@@ -213,9 +218,9 @@ const VMsPage = () => {
       // Reset edit mode
       setIsEditMode(false);
       setSelectedVM(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating VM:', error);
-      toast.error('Failed to create VM');
+      toast.error(`Failed to create VM: ${error.response?.data?.error || error.message}`);
     }
   };
 
