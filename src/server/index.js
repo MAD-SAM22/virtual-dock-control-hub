@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import qemuRouter from './qemuServer.js';
+import dockerRouter from './dockerServer.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,10 +27,14 @@ app.use((req, res, next) => {
 // Mount the QEMU router
 app.use('/qemu', qemuRouter);
 
+// Mount the Docker router
+app.use('/', dockerRouter);
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`QEMU API available at http://localhost:${PORT}/qemu`);
+  console.log(`Docker API available at http://localhost:${PORT}`);
 });
 
 export default app;
