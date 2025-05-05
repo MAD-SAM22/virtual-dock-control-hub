@@ -1,3 +1,4 @@
+
 import express from 'express';
 import bodyParser from 'body-parser';
 import { exec, execSync, spawn } from 'child_process';
@@ -14,8 +15,7 @@ router.use(bodyParser.urlencoded({ extended: true, limit: '500000mb' }));
 
 // Define directories
 // Get current file path (using ES module approach)
-const __filename = fileURLToPath(
-    import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Define directories (in the same directory as this file)
@@ -33,11 +33,6 @@ if (!fs.existsSync(VM_DIR)) fs.mkdirSync(VM_DIR, { recursive: true });
 if (!fs.existsSync(ISO_DIR)) fs.mkdirSync(ISO_DIR, { recursive: true });
 if (!fs.existsSync(DISK_DIR)) fs.mkdirSync(DISK_DIR, { recursive: true });
 
-
-
-
-
-
 // Constants
 const RESIZE_SUPPORTED_FORMATS = ['qcow2', 'raw', 'vmdk'];
 const SUPPORTED_FORMATS = ['qcow2', 'vmdk', 'raw', 'vdi', 'vpc'];
@@ -47,7 +42,6 @@ const FIXED_UNSUPPORTED_ON_WINDOWS = ['qcow2'];
 // List ISO files
 router.get('/list-isos', (req, res) => {
     console.log('E:\\MSA material\\sana 4\\cloud\\lovableai\\virtual-dock-control-hub\\src\\server\\iso', ISO_DIR);
-
 
     try {
         const files = fs.readdirSync(ISO_DIR).filter(file => file.endsWith('.iso'));
@@ -67,7 +61,6 @@ router.get('/list-isos', (req, res) => {
     }
 });
 
-
 // Upload ISO route
 router.post('/upload-iso', (req, res) => {
     try {
@@ -81,7 +74,6 @@ router.post('/upload-iso', (req, res) => {
         res.status(500).json({ error: 'Failed to upload ISO file.' });
     }
 });
-
 
 // Upload ISO file - Additional endpoint that accepts base64 content
 router.post('/upload-iso-base64', (req, res) => {
@@ -194,9 +186,6 @@ router.post('/create-disk', (req, res) => {
         res.json({ message: `✅ Disk "${name}.${format}" created successfully` });
     });
 });
-
-// CREATE VM
-// ✅ Modified create-vm to accept either diskName or diskSize+diskFormat
 
 // CREATE VM
 router.post('/create-vm', (req, res) => {
@@ -324,7 +313,6 @@ router.post('/create-vm', (req, res) => {
     }
 });
 
-
 router.get('/list-vms', (req, res) => {
     const files = fs.readdirSync(VM_DIR).filter(file => file.endsWith('.json'));
     const vmList = files.map(file => {
@@ -334,6 +322,7 @@ router.get('/list-vms', (req, res) => {
 
     res.json(vmList);
 });
+
 // LIST VMs
 router.get('/vms', (req, res) => {
     console.log('GET /vms - Reading VMs from directory:', VM_DIR);
@@ -491,9 +480,9 @@ router.get('/list-disks', (req, res) => {
             // Infer type
             let type = 'dynamic';
             if (format === 'qcow2') {
-                type = preallocMatch ?.[1] === 'full' ? 'fixed' : 'dynamic';
+                type = preallocMatch?.[1] === 'full' ? 'fixed' : 'dynamic';
             } else if (format === 'vmdk') {
-                type = subformatMatch ?.[1] === 'monolithicFlat' ? 'fixed' : 'dynamic';
+                type = subformatMatch?.[1] === 'monolithicFlat' ? 'fixed' : 'dynamic';
             } else if (format === 'raw') {
                 type = 'fixed';
             }
@@ -694,19 +683,19 @@ router.post('/vms/:id/pause', (req, res) => {
 
 // RESTART VM (stop + start)
 router.post('/vms/:id/restart', (req, res) => {
-            const vm = getVMData(req.params.id);
-            if (!vm) return res.status(404).json({ error: 'VM not found' });
+    const vm = getVMData(req.params.id);
+    if (!vm) return res.status(404).json({ error: 'VM not found' });
 
-            try {
-                process.kill(vm.data.pid);
-                const args = [
-                        '-name', vm.data.name,
-                        '-smp', vm.data.cpus.toString(),
-                        '-m', vm.data.memory,
-                        '-drive', `file=${path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`)},format=${vm.data.diskFormat},if=virtio`
+    try {
+        process.kill(vm.data.pid);
+        const args = [
+            '-name', vm.data.name,
+            '-smp', vm.data.cpus.toString(),
+            '-m', vm.data.memory,
+            '-drive', `file=${path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`)},format=${vm.data.diskFormat},if=virtio`
         ];
         if (vm.data.iso) {
-            const isoPath = path.join(__dirname, 'iso', vm.data.iso);
+            const isoPath = path.join(ISO_DIR, vm.data.iso);
             args.push('-cdrom', isoPath, '-boot', 'order=d');
         }
         const proc = spawn('qemu-system-x86_64', args, { detached: true, stdio: 'ignore' });
@@ -756,22 +745,6 @@ router.put('/vms/:id', (req, res) => {
 // MIGRATE (simulation)
 router.post('/vms/:id/migrate', (req, res) => {
     res.json({ message: '🚀 VM migration is not yet implemented. Requires cluster setup.' });
-});
-
-// DELETE VM
-router.delete('/vms/:id', (req, res) => {
-    const vm = getVMData(req.params.id);
-    if (!vm) return res.status(404).json({ error: 'VM not found' });
-
-    try {
-        try { process.kill(vm.data.pid); } catch {}
-        fs.unlinkSync(vm.path);
-        const diskFile = path.join(DISK_DIR, `${vm.data.diskName}.${vm.data.diskFormat}`);
-        if (fs.existsSync(diskFile)) fs.unlinkSync(diskFile);
-        res.json({ message: `🗑️ VM "${vm.data.name}" deleted.` });
-    } catch (e) {
-        res.status(500).json({ error: `Failed to delete VM: ${e.message}` });
-    }
 });
 
 // Add a new health check endpoint

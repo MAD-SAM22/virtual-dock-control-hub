@@ -17,6 +17,17 @@ export default defineConfig(({ mode }) => ({
         secure: false,
         rewrite: (path) => path,
       },
+      '/system/info': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // Proxy QEMU API routes
+      '/qemu': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
       // Proxy all Docker API routes
       '/containers': {
         target: 'http://localhost:3000',
