@@ -19,7 +19,6 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { VMInfo } from '@/services/qemuService';
 import { toast } from 'sonner';
@@ -98,6 +97,7 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Form submitted with data:", formData);
     
     if (!validateForm()) {
       toast.error('Please correct the form errors');

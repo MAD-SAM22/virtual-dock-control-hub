@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -274,31 +273,16 @@ const VMsPage = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Dialog open={createDialogOpen} onOpenChange={handleDialogClose}>
-            <DialogTrigger asChild>
-              <Button onClick={() => {
-                setIsEditMode(false);
-                setSelectedVM(null);
-                setCreateDialogOpen(true);
-              }}>
-                <Plus className="mr-2 h-4 w-4" /> Create VM
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{isEditMode ? 'Edit Virtual Machine' : 'Create Virtual Machine'}</DialogTitle>
-                <DialogDescription>
-                  {isEditMode ? 'Modify' : 'Configure'} a QEMU virtual machine
-                </DialogDescription>
-              </DialogHeader>
-              <CreateVMForm 
-                onSubmit={isEditMode ? handleUpdateVM : handleCreateVM} 
-                onCancel={handleDialogClose} 
-                initialValues={selectedVM}
-                isEditMode={isEditMode}
-              />
-            </DialogContent>
-          </Dialog>
+          <Button 
+            onClick={() => {
+              console.log("Create VM button clicked");
+              setIsEditMode(false);
+              setSelectedVM(null);
+              setCreateDialogOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Create VM
+          </Button>
         </div>
       </div>
 
@@ -500,6 +484,23 @@ const VMsPage = () => {
               Close
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{isEditMode ? 'Edit Virtual Machine' : 'Create Virtual Machine'}</DialogTitle>
+            <DialogDescription>
+              {isEditMode ? 'Modify' : 'Configure'} a QEMU virtual machine
+            </DialogDescription>
+          </DialogHeader>
+          <CreateVMForm 
+            onSubmit={isEditMode ? handleUpdateVM : handleCreateVM} 
+            onCancel={handleDialogClose} 
+            initialValues={selectedVM}
+            isEditMode={isEditMode}
+          />
         </DialogContent>
       </Dialog>
     </div>
