@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,10 +47,11 @@ interface Image {
 }
 
 interface DockerImage {
-  Id: string;
-  RepoTags: string[];
-  Created: number;
-  Size: number;
+  id: string;
+  repository: string;
+  tag: string;
+  size: string;
+  created: string;
 }
 
 const ImagesPage = () => {
@@ -98,8 +100,19 @@ const ImagesPage = () => {
       
       if (response && response.data && Array.isArray(response.data)) {
         console.log('Valid Docker images data received from API');
-        setImages(response.data);
-        setFilteredImages(response.data);
+        
+        // Map Docker image format to our app's Image format
+        const formattedImages: Image[] = response.data.map((img: DockerImage) => ({
+          id: img.id,
+          name: `${img.repository}:${img.tag}`,
+          size: img.size,
+          format: 'Docker Image',
+          lastModified: img.created,
+          description: `Docker image ${img.repository}:${img.tag}`
+        }));
+        
+        setImages(formattedImages);
+        setFilteredImages(formattedImages);
         setIsLoading(false);
       } else {
         console.warn('Unexpected Docker images data format received, using mock data');
