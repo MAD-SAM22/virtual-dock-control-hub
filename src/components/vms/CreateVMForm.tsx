@@ -19,10 +19,12 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, MinusCircle, Upload } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { VMInfo } from '@/services/qemuService';
 import { toast } from 'sonner';
+import ExistingDiskSelector from './ExistingDiskSelector';
+import ISOFileSelector from './ISOFileSelector';
 
 interface CreateVMFormProps {
   onSubmit: (data: any) => void;
@@ -33,45 +35,43 @@ interface CreateVMFormProps {
 
 const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }: CreateVMFormProps) => {
   const [formData, setFormData] = useState({
-    name: initialValues?.name || '',
-    cpus: initialValues?.cpus ? Number(initialValues.cpus) : 1,
-    memory: initialValues?.memory ? parseInt(initialValues.memory) || 1 : 1,
+    name: '',
+    cpus: 1,
+    memory: 1,
     diskName: '',
-    diskSize: 10,
-    os: initialValues?.os || '',
-    iso: initialValues?.iso || '',
-    networkType: initialValues?.networkType || 'bridge',
+    os: '',
+    iso: '',
+    customISOPath: '',
+    useCustomPath: false,
+    networkType: 'bridge',
     networkBridge: 'br0',
-    bootOrder: ['cdrom', 'disk', 'network'],
     enableKVM: true,
-    enableNestedVirt: false,
     enableEFI: false,
-    diskFormat: 'qcow2',
-    diskBus: 'virtio',
-    networkModel: 'virtio-net',
-    displayType: 'vnc',
-    vncPort: '',
-    keyboardLayout: 'en-us',
     customArgs: '',
   });
 
-  const [existingDisks, setExistingDisks] = useState<string[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Fetch existing disks on component mount
+  // Initialize form with initial values if in edit mode
   useEffect(() => {
-    const fetchExistingDisks = async () => {
-      try {
-        // Mock data for now - in a real application you would fetch this from your API
-        setExistingDisks(['test-vm.qcow2', 'debian.qcow2', 'ubuntu.qcow2', 'windows.qcow2']);
-      } catch (error) {
-        console.error('Error fetching disks:', error);
-        setExistingDisks([]);
-      }
-    };
-
-    fetchExistingDisks();
-  }, []);
+    if (isEditMode && initialValues) {
+      setFormData({
+        name: initialValues.name || '',
+        cpus: typeof initialValues.cpus === 'string' ? parseInt(initialValues.cpus) : initialValues.cpus || 1,
+        memory: initialValues.memory ? parseInt(initialValues.memory) : 1,
+        diskName: initialValues.diskName || '',
+        os: initialValues.os || '',
+        iso: initialValues.iso || '',
+        customISOPath: initialValues.customISOPath || '',
+        useCustomPath: initialValues.useCustomPath || false,
+        networkType: initialValues.networkType || 'bridge',
+        networkBridge: 'br0',
+        enableKVM: true,
+        enableEFI: false,
+        customArgs: '',
+      });
+    }
+  }, [isEditMode, initialValues]);
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -88,7 +88,7 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
       errors.memory = 'Memory must be greater than 0';
     }
     
-    if (!formData.diskName && !isEditMode) {
+    if (!formData.diskName) {
       errors.diskName = 'Disk name is required';
     }
     
@@ -104,7 +104,23 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
       return;
     }
     
-    onSubmit(formData);
+    // Format the data for backend according to the expected API parameters
+    const submissionData = {
+      name: formData.name,
+      cpus: formData.cpus,
+      memory: formData.memory,
+      diskName: formData.diskName,
+      os: formData.os,
+      iso: formData.useCustomPath ? formData.customISOPath : formData.iso,
+      networkType: formData.networkType,
+      networkBridge: formData.networkType === 'bridge' ? formData.networkBridge : undefined,
+      enableKVM: formData.enableKVM,
+      enableEFI: formData.enableEFI,
+      customArgs: formData.customArgs
+    };
+    
+    console.log('Submitting VM data:', submissionData);
+    onSubmit(submissionData);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -119,24 +135,6 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
         ...formErrors,
         [e.target.name]: '',
       });
-    }
-  };
-
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value)) {
-      setFormData({
-        ...formData,
-        [field]: value,
-      });
-      
-      // Clear error for this field if it exists
-      if (formErrors[field]) {
-        setFormErrors({
-          ...formErrors,
-          [field]: '',
-        });
-      }
     }
   };
 
@@ -175,30 +173,6 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
       ...formData,
       [name]: checked,
     });
-  };
-
-  // Boot order management
-  const moveBootOption = (index: number, direction: 'up' | 'down') => {
-    const newBootOrder = [...formData.bootOrder];
-    if (direction === 'up' && index > 0) {
-      [newBootOrder[index], newBootOrder[index - 1]] = [newBootOrder[index - 1], newBootOrder[index]];
-    } else if (direction === 'down' && index < newBootOrder.length - 1) {
-      [newBootOrder[index], newBootOrder[index + 1]] = [newBootOrder[index + 1], newBootOrder[index]];
-    }
-    
-    setFormData({
-      ...formData,
-      bootOrder: newBootOrder,
-    });
-  };
-
-  const renderBootDeviceName = (device: string) => {
-    switch (device) {
-      case 'cdrom': return 'CD/DVD';
-      case 'disk': return 'Hard Disk';
-      case 'network': return 'Network';
-      default: return device;
-    }
   };
 
   return (
@@ -245,27 +219,19 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
                 <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="iso">ISO Image</Label>
-            <div className="flex gap-2">
-              <Input
-                id="iso"
-                name="iso"
-                placeholder="/path/to/image.iso or http://..."
-                value={formData.iso}
-                onChange={handleChange}
-                className="flex-1"
-              />
-              <Button type="button" variant="outline" className="shrink-0">
-                <Upload className="h-4 w-4 mr-1" /> Browse
-              </Button>
-            </div>
             <p className="text-xs text-muted-foreground">
-              Path to ISO image or URL for remote install
+              For display purposes only
             </p>
           </div>
+          
+          <ISOFileSelector 
+            selectedISO={formData.iso}
+            onISOChange={(iso) => handleSelectChange('iso', iso)}
+            customISOPath={formData.customISOPath}
+            onCustomISOPathChange={(path) => handleSelectChange('customISOPath', path)}
+            useCustomPath={formData.useCustomPath}
+            onUseCustomPathChange={(use) => handleCheckboxChange('useCustomPath', use)}
+          />
           
           <div className="space-y-2">
             <Label htmlFor="cpus">CPU Cores: {formData.cpus}</Label>
@@ -293,62 +259,11 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
         </TabsContent>
         
         <TabsContent value="storage" className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="diskName">Existing Disk</Label>
-            <Select
-              value={formData.diskName}
-              onValueChange={(value) => handleSelectChange('diskName', value)}
-            >
-              <SelectTrigger className={formErrors.diskName ? "border-red-500" : ""}>
-                <SelectValue placeholder="Select existing disk" />
-              </SelectTrigger>
-              <SelectContent>
-                {existingDisks.map(disk => (
-                  <SelectItem key={disk} value={disk}>{disk}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {formErrors.diskName && <p className="text-xs text-red-500">{formErrors.diskName}</p>}
-            <p className="text-xs text-muted-foreground">
-              Select an existing disk from your storage
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="diskFormat">Disk Format</Label>
-            <Select
-              value={formData.diskFormat}
-              onValueChange={(value) => handleSelectChange('diskFormat', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select disk format" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="qcow2">QCOW2 (Recommended)</SelectItem>
-                <SelectItem value="raw">Raw</SelectItem>
-                <SelectItem value="vdi">VDI</SelectItem>
-                <SelectItem value="vmdk">VMDK</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="diskBus">Disk Interface</Label>
-            <Select
-              value={formData.diskBus}
-              onValueChange={(value) => handleSelectChange('diskBus', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select disk interface" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="virtio">VirtIO (Recommended)</SelectItem>
-                <SelectItem value="sata">SATA</SelectItem>
-                <SelectItem value="scsi">SCSI</SelectItem>
-                <SelectItem value="ide">IDE</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <ExistingDiskSelector 
+            selectedDisk={formData.diskName}
+            onDiskChange={(diskName) => handleSelectChange('diskName', diskName)}
+          />
+          {formErrors.diskName && <p className="text-xs text-red-500">{formErrors.diskName}</p>}
           
           <div className="space-y-2">
             <Label htmlFor="networkType">Network Type</Label>
@@ -379,114 +294,9 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
               />
             </div>
           )}
-          
-          <div className="space-y-2">
-            <Label htmlFor="networkModel">Network Adapter Model</Label>
-            <Select
-              value={formData.networkModel}
-              onValueChange={(value) => handleSelectChange('networkModel', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select network adapter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="virtio-net">VirtIO (Recommended)</SelectItem>
-                <SelectItem value="e1000">Intel E1000</SelectItem>
-                <SelectItem value="rtl8139">Realtek RTL8139</SelectItem>
-                <SelectItem value="vmxnet3">VMware vmxnet3</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Boot Order</Label>
-            <div className="space-y-2 border rounded-md p-2">
-              {formData.bootOrder.map((device, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm">
-                    {index + 1}. {renderBootDeviceName(device)}
-                  </span>
-                  <div className="space-x-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => moveBootOption(index, 'up')}
-                      disabled={index === 0}
-                    >
-                      ↑
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => moveBootOption(index, 'down')}
-                      disabled={index === formData.bootOrder.length - 1}
-                    >
-                      ↓
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </TabsContent>
         
         <TabsContent value="advanced" className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="displayType">Display Type</Label>
-            <Select
-              value={formData.displayType}
-              onValueChange={(value) => handleSelectChange('displayType', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select display type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="vnc">VNC</SelectItem>
-                <SelectItem value="spice">SPICE</SelectItem>
-                <SelectItem value="none">None (Headless)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {formData.displayType === 'vnc' && (
-            <div className="space-y-2">
-              <Label htmlFor="vncPort">VNC Port (optional)</Label>
-              <Input
-                id="vncPort"
-                name="vncPort"
-                placeholder="5900"
-                value={formData.vncPort}
-                onChange={handleChange}
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave empty for automatic port assignment
-              </p>
-            </div>
-          )}
-          
-          <div className="space-y-2">
-            <Label htmlFor="keyboardLayout">Keyboard Layout</Label>
-            <Select
-              value={formData.keyboardLayout}
-              onValueChange={(value) => handleSelectChange('keyboardLayout', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select keyboard layout" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en-us">English (US)</SelectItem>
-                <SelectItem value="en-gb">English (UK)</SelectItem>
-                <SelectItem value="de">German</SelectItem>
-                <SelectItem value="fr">French</SelectItem>
-                <SelectItem value="es">Spanish</SelectItem>
-                <SelectItem value="it">Italian</SelectItem>
-                <SelectItem value="ja">Japanese</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
           <div className="space-y-1">
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -498,20 +308,6 @@ const CreateVMForm = ({ onSubmit, onCancel, initialValues, isEditMode = false }:
             </div>
             <p className="text-xs text-muted-foreground ml-6">
               Improves performance, recommended for most use cases
-            </p>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="enableNestedVirt"
-                checked={formData.enableNestedVirt}
-                onCheckedChange={(checked) => handleCheckboxChange('enableNestedVirt', !!checked)}
-              />
-              <Label htmlFor="enableNestedVirt">Enable nested virtualization</Label>
-            </div>
-            <p className="text-xs text-muted-foreground ml-6">
-              Allows running VMs inside this VM
             </p>
           </div>
           

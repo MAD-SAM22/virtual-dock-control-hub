@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -136,27 +137,41 @@ export const qemuService = {
 
   // Create a new VM
   createVM: async (vmData: any) => {
-    console.log('Creating VM with data:', vmData);
-    
-    // Format the data to match what the API expects
-    const formattedData = {
-      name: vmData.name,
-      cpus: vmData.cpus,
-      memory: vmData.memory,
-      diskName: vmData.diskName || 'test-vm', // Default disk if not provided
-      os: vmData.os,
-      iso: vmData.iso,
-      networkType: vmData.networkType || 'bridge',
-      networkBridge: vmData.networkBridge,
-      enableKVM: vmData.enableKVM !== undefined ? vmData.enableKVM : true,
-      enableEFI: vmData.enableEFI,
-      customArgs: vmData.customArgs
-    };
-    
     try {
-      return apiClient.post('/qemu/create-vm', formattedData);
-    } catch (error) {
+      console.log('Creating VM with data:', vmData);
+      
+      // Format the data to match what the API expects
+      const formattedData = {
+        name: vmData.name,
+        cpus: vmData.cpus,
+        memory: vmData.memory,
+        diskName: vmData.diskName,
+        os: vmData.os,
+        iso: vmData.iso,
+        networkType: vmData.networkType || 'bridge',
+        networkBridge: vmData.networkBridge,
+        enableKVM: vmData.enableKVM !== undefined ? vmData.enableKVM : true,
+        enableEFI: vmData.enableEFI,
+        customArgs: vmData.customArgs
+      };
+      
+      // Validate required fields before sending to API
+      if (!formattedData.name || !formattedData.cpus || !formattedData.memory || !formattedData.diskName) {
+        const errorMessage = 'Missing required VM parameters';
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
+      }
+      
+      console.log('Sending VM creation request with formatted data:', formattedData);
+      const response = await apiClient.post('/qemu/create-vm', formattedData);
+      console.log('VM creation response:', response);
+      
+      toast.success(`VM ${formattedData.name} created successfully`);
+      return response;
+    } catch (error: any) {
       console.error('Error creating VM:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to create VM';
+      toast.error(errorMessage);
       throw error;
     }
   },
