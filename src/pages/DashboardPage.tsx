@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -14,6 +13,7 @@ import { Box, Image, Server, Activity, AlertTriangle, CheckCircle } from 'lucide
 import { containerService } from '@/services/dockerService';
 import { imageService } from '@/services/dockerService';
 import { qemuService } from '@/services/qemuService';
+import { toast } from 'sonner';
 
 const generateMockData = (count: number) => {
   return Array.from({ length: count }, (_, i) => ({
@@ -24,13 +24,74 @@ const generateMockData = (count: number) => {
   }));
 };
 
+interface SystemInfo {
+  cpuLoad: number;
+  memoryUsage: number;
+  diskUsage: number;
+}
+
 const DashboardPage = () => {
   const [containers, setContainers] = useState<any[]>([]);
   const [images, setImages] = useState<any[]>([]);
   const [vms, setVMs] = useState<any[]>([]);
+  const [systemInfo, setSystemInfo] = useState<SystemInfo>({
+    cpuLoad: 0,
+    memoryUsage: 0,
+    diskUsage: 0
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [systemData] = useState(() => generateMockData(24));
+
+  const getSystemLoad = async () => {
+    try {
+      // This would normally be replaced with an actual API call to get system metrics
+      // Since we don't have a direct API for this, we'll simulate it based on container metrics
+      let totalCpuPercent = 0;
+      
+      // Try to get detailed stats for containers to calculate system load
+      if (containers.length > 0) {
+        // Sample a few containers for their stats to estimate load
+        const containerIds = containers.slice(0, Math.min(3, containers.length)).map(c => c.id);
+        
+        for (const id of containerIds) {
+          try {
+            const statsResponse = await containerService.getContainerStats(id, false);
+            if (statsResponse && statsResponse.data) {
+              // Extract CPU percentage if available in the stats
+              const cpuPercent = statsResponse.data.cpu_stats?.cpu_usage?.total_usage || 0;
+              totalCpuPercent += cpuPercent;
+            }
+          } catch (err) {
+            console.warn(`Failed to get stats for container ${id}`, err);
+          }
+        }
+      }
+      
+      // If we couldn't get real metrics, generate a simulated value
+      const simulatedCpuLoad = containers.length > 0 
+        ? Math.min(50 + (containers.length * 5) + Math.random() * 20, 95) 
+        : 10 + Math.random() * 15;
+        
+      // Randomize memory and disk usage for demo
+      const simulatedMemoryUsage = 25 + Math.random() * 40;
+      const simulatedDiskUsage = 30 + Math.random() * 30;
+      
+      setSystemInfo({
+        cpuLoad: totalCpuPercent > 0 ? totalCpuPercent : Math.round(simulatedCpuLoad),
+        memoryUsage: Math.round(simulatedMemoryUsage),
+        diskUsage: Math.round(simulatedDiskUsage)
+      });
+    } catch (err) {
+      console.error('Error getting system load:', err);
+      // Fallback to simulated values
+      setSystemInfo({
+        cpuLoad: Math.round(20 + Math.random() * 30),
+        memoryUsage: Math.round(30 + Math.random() * 30),
+        diskUsage: Math.round(25 + Math.random() * 40)
+      });
+    }
+  };
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -68,23 +129,47 @@ const DashboardPage = () => {
         setVMs(vmsResponse.data);
       }
       
+      // Get system load information
+      await getSystemLoad();
+      
       setIsLoading(false);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError('Failed to load dashboard data');
       setIsLoading(false);
+      toast.error('Failed to load dashboard data');
     }
   };
 
   useEffect(() => {
     fetchDashboardData();
+    
+    // Set up refresh interval for system metrics
+    const intervalId = setInterval(() => {
+      getSystemLoad();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => {
+      clearInterval(intervalId);
+    };
   }, []);
+
+  // Count running containers
+  const runningContainers = containers.filter(c => 
+    c.status === 'running' || 
+    c.status.includes('Up')
+  ).length;
+
+  // Count running VMs
+  const runningVMs = vms.filter(vm => 
+    vm.status === 'running'
+  ).length;
 
   const stats = [
     { 
       title: 'Containers', 
       value: containers.length, 
-      running: containers.filter(c => c.status === 'running' || c.status.includes('Up')).length,
+      running: runningContainers,
       icon: <Box className="h-5 w-5 text-docker-blue" /> 
     },
     { 
@@ -95,12 +180,12 @@ const DashboardPage = () => {
     { 
       title: 'QEMU VMs', 
       value: vms.length, 
-      running: vms.filter(vm => vm.status === 'running').length,
+      running: runningVMs,
       icon: <Server className="h-5 w-5 text-qemu-purple" /> 
     },
     { 
       title: 'System Load', 
-      value: '23%', 
+      value: `${systemInfo.cpuLoad}%`, 
       icon: <Activity className="h-5 w-5 text-primary" /> 
     },
   ];
